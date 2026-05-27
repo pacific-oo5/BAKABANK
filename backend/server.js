@@ -5,10 +5,34 @@ const cors = require('cors');
 const path = require('path');
 
 const app = express();
+
+// Динамический CORS - разрешаем все origins в локальной сети
 app.use(cors({
-  origin: ['http://localhost:5173', 'https://supersympathetic-dana-disharmoniously.ngrok-free.dev'],
+  origin: function(origin, callback) {
+    // Разрешаем запросы без origin (например, Postman, curl)
+    if (!origin) return callback(null, true);
+
+    // Разрешаем localhost на любых портах
+    if (origin.includes('localhost') || origin.includes('127.0.0.1')) {
+      return callback(null, true);
+    }
+
+    // Разрешаем локальные IP адреса (192.168.x.x, 172.x.x.x, 10.x.x.x)
+    if (origin.match(/^https?:\/\/(192\.168\.|172\.(1[6-9]|2[0-9]|3[01])\.|10\.)/)) {
+      return callback(null, true);
+    }
+
+    // Разрешаем ngrok
+    if (origin.includes('ngrok')) {
+      return callback(null, true);
+    }
+
+    // Остальные запросы блокируем
+    callback(new Error('Not allowed by CORS'));
+  },
   credentials: true
 }));
+
 app.use(express.json());
 
 // ====================================================================
@@ -390,8 +414,9 @@ app.post('/api/ai/chat', (req, res) => {
 });
 
 const PORT = 3001;
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`====================================================`);
   console.log(`🏦 BakaBank Core System успешно запущен на порту: ${PORT}`);
+  console.log(`📱 Доступен локально и в локальной сети (0.0.0.0:${PORT})`);
   console.log(`====================================================`);
 });

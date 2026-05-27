@@ -9,15 +9,10 @@ export default defineConfig({
     allowedHosts: [
       'supersympathetic-dana-disharmoniously.ngrok-free.dev',
       '.ngrok-free.dev',
-      '.ngrok.io'
-    ]
-  },
-  preview: {
-    host: true,
-    allowedHosts: [
-      'supersympathetic-dana-disharmoniously.ngrok-free.dev',
-      '.ngrok-free.dev',
-      '.ngrok.io'
+      '.ngrok.io',
+      'localhost',
+      '127.0.0.1',
+      '172.16.6.210'
     ]
   }
 })
