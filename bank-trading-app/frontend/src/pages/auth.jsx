@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useTradingStore } from '../store/useTradingStore';
+import { API_BASE_URL } from '../config';
 
 export default function Auth({ onSwitchToRegister }) {
   const { setUser } = useTradingStore(); // Метод Zustand для сохранения сессии
@@ -14,7 +15,7 @@ export default function Auth({ onSwitchToRegister }) {
     setLoading(true);
 
     try {
-      const response = await fetch('http://localhost:3001/api/auth/login', {
+      const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ phoneNumber: phone, password })

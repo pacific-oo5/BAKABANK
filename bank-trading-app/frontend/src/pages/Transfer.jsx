@@ -1,10 +1,16 @@
 import React, { useState } from 'react';
 import { useTradingStore } from '../store/useTradingStore';
+import { API_BASE_URL } from '../config';
+import { Phone, TrendingUp, Home, Wifi, Gamepad2, Search, ChevronRight, ArrowLeft, User, CreditCard, QrCode } from 'lucide-react';
+import { motion } from 'framer-motion';
+import toast, { Toaster } from 'react-hot-toast';
+import QRPay from './QRPay';
+import '../styles/transfers.css';
 
 export default function Transfers() {
   const { user, setUser } = useTradingStore();
   
-  // Управление экранами: 'menu' (главная витрина), 'phone' (перевод по тел), 'invest' (биржа), 'mock' (заглушка для ЖКХ/коммуналки)
+  // Управление экранами: 'menu' (главная витрина), 'phone' (перевод по тел), 'invest' (биржа), 'mock' (заглушка для ЖКХ/коммуналки), 'qr' (QR-переводы)
   const [activeSubScreen, setActiveSubScreen] = useState('menu');
   const [mockTitle, setMockTitle] = useState('');
 
@@ -38,23 +44,33 @@ export default function Transfers() {
     setError(''); setSuccess(''); setLoading(true);
 
     if (parseFloat(phoneAmount) > user.cardBalance) {
-      setError('Недостаточно средств на карте'); setLoading(false); return;
+      toast.error('Недостаточно средств на карте');
+      setLoading(false);
+      return;
     }
 
     try {
-      const response = await fetch('http://localhost:3001/api/bank/transfer-phone', {
+      const response = await fetch(`${API_BASE_URL}/api/bank/transfer-phone`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ senderId: user.id, targetPhone: targetPhone.trim(), amount: phoneAmount })
       });
       const data = await response.json();
-      if (!response.ok) { setError(data.error || 'Ошибка перевода'); setLoading(false); return; }
+      if (!response.ok) {
+        toast.error(data.error || 'Ошибка перевода');
+        setLoading(false);
+        return;
+      }
 
       setUser(data.user);
-      setSuccess(`Перевод выполнен! Отправлено ${phoneAmount} с. клиенту ${targetPhone}`);
+      toast.success(`Перевод выполнен! Отправлено ${phoneAmount} с. клиенту ${targetPhone}`);
       setTargetPhone(''); setPhoneAmount('');
       setActiveSubScreen('menu');
-    } catch (err) { setError('Ошибка связи с сервером.'); } finally { setLoading(false); }
+    } catch (err) {
+      toast.error('Ошибка связи с сервером.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   // ЛОГИКА 2: Пополнение биржевого счета
@@ -63,131 +79,235 @@ export default function Transfers() {
     setError(''); setSuccess(''); setLoading(true);
 
     if (parseFloat(investAmount) > user.cardBalance) {
-      setError('Недостаточно средств на карте'); setLoading(false); return;
+      toast.error('Недостаточно средств на карте');
+      setLoading(false);
+      return;
     }
 
     try {
-      const response = await fetch('http://localhost:3001/api/bank/fund-invest', {
+      const response = await fetch(`${API_BASE_URL}/api/bank/fund-invest`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId: user.id, amount: investAmount })
       });
       const data = await response.json();
-      if (!response.ok) { setError(data.error || 'Ошибка пополнения'); setLoading(false); return; }
+      if (!response.ok) {
+        toast.error(data.error || 'Ошибка пополнения');
+        setLoading(false);
+        return;
+      }
 
       setUser(data.user);
-      setSuccess(`Инвест-счет успешно пополнен на +${investAmount} сомов!`);
+      toast.success(`Инвест-счет успешно пополнен на +${investAmount} сомов!`);
       setInvestAmount('');
       setActiveSubScreen('menu');
-    } catch (err) { setError('Ошибка связи с сервером.'); } finally { setLoading(false); }
+    } catch (err) {
+      toast.error('Ошибка связи с сервером.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   // ЛОГИКА 3: Эмуляция оплаты коммуналки / интернета
   const handleMockPay = (e) => {
     e.preventDefault();
-    setError(''); setSuccess('');
     const amt = parseFloat(mockAmount);
-    if (amt > user.cardBalance) { setError('Недостаточно денег на карте'); return; }
+    if (amt > user.cardBalance) {
+      toast.error('Недостаточно денег на карте');
+      return;
+    }
 
     // Списываем только локально для демонстрации коммуналки
     setUser({ ...user, cardBalance: user.cardBalance - amt });
-    setSuccess(`Оплата по услуге "${mockTitle}" на сумму ${amt} с. успешно проведена!`);
+    toast.success(`Оплата по услуге "${mockTitle}" на сумму ${amt} с. успешно проведена!`);
     setMockAccount(''); setMockAmount('');
     setActiveSubScreen('menu');
   };
 
   return (
-    <div style={containerStyle}>
-      
+    <div className="transfers-container">
+      <Toaster position="top-center" toastOptions={{
+        style: { background: 'var(--color-surface)', color: 'var(--color-text-primary)', border: '1px solid var(--color-border)' },
+        success: { iconTheme: { primary: 'var(--color-accent-success)', secondary: '#fff' } },
+        error: { iconTheme: { primary: 'var(--color-accent-error)', secondary: '#fff' } }
+      }} />
+
       {/* ДИНАМИЧЕСКИЙ ВЫВОД ОШИБОК И УСПЕХОВ */}
-      {error && <div style={errorStyle}>⚠️ {error}</div>}
-      {success && <div style={successStyle}>✅ {success}</div>}
+      {error && <div className="alert-error">⚠️ {error}</div>}
+      {success && <div className="alert-success">✅ {success}</div>}
 
       {/* ==================================================================== */}
       {/* СЦЕНАРИЙ 1: ГЛАВНОЕ МЕНЮ ПЛАТЕЖЕЙ И КАТЕГОРИЙ */}
       {/* ==================================================================== */}
       {activeSubScreen === 'menu' && (
         <>
-          <h2 style={titleStyle}>Платежи и переводы</h2>
-          <p style={subtitleStyle}>Оплата услуг, штрафов и мгновенные переводы</p>
+          <h2 className="transfers-title">Платежи и переводы</h2>
+          <p className="transfers-subtitle">Оплата услуг, штрафов и мгновенные переводы</p>
 
           {/* Строка поиска (как в MBank) */}
-          <input type="text" placeholder="Название услуги, ИНН или кошелек..." style={searchStyle} />
+          <div className="transfers-search-wrapper">
+            <Search size={18} className="transfers-search-icon" />
+            <input type="text" placeholder="Название услуги, ИНН или кошелек..." className="transfers-search" />
+          </div>
 
           {/* БЛОК: ЧАСТЫЕ ПЛАТЕЖИ */}
-          <h4 style={sectionTitleStyle}>Частые платежи</h4>
-          <div style={horizontalScrollStyle}>
-            <div style={favItemStyle} onClick={() => { changeScreen('phone'); setTargetPhone('+996777111222'); }}>
-              <div style={favIconWrapperStyle('#202329')}>👤</div>
-              <span style={favLabelStyle}>Мама</span>
-            </div>
-            <div style={favItemStyle} onClick={() => changeScreen('invest')}>
-              <div style={favIconWrapperStyle('#11bb77', '#000')}>📈</div>
-              <span style={favLabelStyle}>Жаба-Инвест</span>
-            </div>
-            <div style={favItemStyle} onClick={() => changeScreen('mock', 'Megacom (О!)')}>
-              <div style={favIconWrapperStyle('#202329')}>📱</div>
-              <span style={favLabelStyle}>Мой номер</span>
-            </div>
-            <div style={favItemStyle} onClick={() => changeScreen('mock', 'Акнет Интернет')}>
-              <div style={favIconWrapperStyle('#202329')}>🌐</div>
-              <span style={favLabelStyle}>Акнет Дом</span>
-            </div>
+          <h4 className="transfers-section-title">Частые платежи</h4>
+          <div className="favorites-scroll">
+            <motion.div
+              whileTap={{ scale: 0.95 }}
+              className="favorite-item"
+              onClick={() => { changeScreen('phone'); setTargetPhone('+996777111222'); }}
+            >
+              <div className="favorite-icon-wrapper" style={{ background: 'var(--color-surface)' }}>
+                <User size={20} color="var(--color-text-primary)" />
+              </div>
+              <span className="favorite-label">Мама</span>
+            </motion.div>
+
+            <motion.div
+              whileTap={{ scale: 0.95 }}
+              className="favorite-item"
+              onClick={() => changeScreen('invest')}
+            >
+              <div className="favorite-icon-wrapper" style={{ background: 'var(--color-accent-success)', color: '#000' }}>
+                <TrendingUp size={20} />
+              </div>
+              <span className="favorite-label">Жаба-Инвест</span>
+            </motion.div>
+
+            <motion.div
+              whileTap={{ scale: 0.95 }}
+              className="favorite-item"
+              onClick={() => changeScreen('qr')}
+            >
+              <div className="favorite-icon-wrapper" style={{ background: 'var(--color-accent-warning)', color: '#000' }}>
+                <QrCode size={20} />
+              </div>
+              <span className="favorite-label">QR-перевод</span>
+            </motion.div>
+
+            <motion.div
+              whileTap={{ scale: 0.95 }}
+              className="favorite-item"
+              onClick={() => changeScreen('mock', 'Megacom (О!)')}
+            >
+              <div className="favorite-icon-wrapper" style={{ background: 'var(--color-surface)' }}>
+                <Phone size={20} color="var(--color-text-primary)" />
+              </div>
+              <span className="favorite-label">Мой номер</span>
+            </motion.div>
+
+            <motion.div
+              whileTap={{ scale: 0.95 }}
+              className="favorite-item"
+              onClick={() => changeScreen('mock', 'Акнет Интернет')}
+            >
+              <div className="favorite-icon-wrapper" style={{ background: 'var(--color-surface)' }}>
+                <Wifi size={20} color="var(--color-text-primary)" />
+              </div>
+              <span className="favorite-label">Акнет Дом</span>
+            </motion.div>
           </div>
 
           {/* КАТЕГОРИИ ПЛАТЕЖЕЙ */}
-          <h4 style={sectionTitleStyle}>Категории услуг</h4>
-          <div style={categoryListStyle}>
-            
-            {/* Рабочий перевод по телефону */}
-            <div style={categoryRowStyle} onClick={() => changeScreen('phone')}>
-              <span style={catIconStyle}>📲</span>
-              <div style={catTextContainerStyle}>
-                <span style={catNameStyle}>Перевод по номеру телефона</span>
-                <span style={catDescStyle}>Клиентам BakaBank без комиссии</span>
+          <h4 className="transfers-section-title">Категории услуг</h4>
+          <div className="categories-list">
+
+            {/* QR-переводы */}
+            <motion.div
+              whileTap={{ scale: 0.98 }}
+              className="category-row"
+              onClick={() => changeScreen('qr')}
+            >
+              <span className="category-icon" style={{ background: 'rgba(255,204,0,0.1)', color: 'var(--color-accent-warning)' }}>
+                <QrCode size={20} />
+              </span>
+              <div className="category-text-container">
+                <span className="category-name">QR-переводы</span>
+                <span className="category-desc">Мгновенные переводы по QR-коду без ввода номера</span>
               </div>
-              <span style={arrowStyle}>❯</span>
-            </div>
+              <ChevronRight size={20} className="category-arrow" />
+            </motion.div>
+
+            {/* Рабочий перевод по телефону */}
+            <motion.div
+              whileTap={{ scale: 0.98 }}
+              className="category-row"
+              onClick={() => changeScreen('phone')}
+            >
+              <span className="category-icon">
+                <Phone size={20} />
+              </span>
+              <div className="category-text-container">
+                <span className="category-name">Перевод по номеру телефона</span>
+                <span className="category-desc">Клиентам BakaBank без комиссии</span>
+              </div>
+              <ChevronRight size={20} className="category-arrow" />
+            </motion.div>
 
             {/* Рабочее пополнение биржи */}
-            <div style={categoryRowStyle} onClick={() => changeScreen('invest')}>
-              <span style={{ ...catIconStyle, background: 'rgba(17,187,119,0.1)', color: '#11bb77' }}>📊</span>
-              <div style={catTextContainerStyle}>
-                <span style={catNameStyle}>Пополнение инвест-счета (M-Invest)</span>
-                <span style={catDescStyle}>Мгновенный перевод на брокерский баланс</span>
+            <motion.div
+              whileTap={{ scale: 0.98 }}
+              className="category-row"
+              onClick={() => changeScreen('invest')}
+            >
+              <span className="category-icon" style={{ background: 'rgba(48, 209, 88, 0.1)', color: 'var(--color-accent-success)' }}>
+                <TrendingUp size={20} />
+              </span>
+              <div className="category-text-container">
+                <span className="category-name">Пополнение инвест-счета (M-Invest)</span>
+                <span className="category-desc">Мгновенный перевод на брокерский баланс</span>
               </div>
-              <span style={arrowStyle}>❯</span>
-            </div>
+              <ChevronRight size={20} className="category-arrow" />
+            </motion.div>
 
             {/* Коммуналка */}
-            <div style={categoryRowStyle} onClick={() => changeScreen('mock', 'Коммунальные услуги (Бишкектеплосеть)')}>
-              <span style={catIconStyle}>🏠</span>
-              <div style={catTextContainerStyle}>
-                <span style={catNameStyle}>Коммунальные услуги</span>
-                <span style={catDescStyle}>Газ, свет, отопление, вывоз мусора</span>
+            <motion.div
+              whileTap={{ scale: 0.98 }}
+              className="category-row"
+              onClick={() => changeScreen('mock', 'Коммунальные услуги (Бишкектеплосеть)')}
+            >
+              <span className="category-icon">
+                <Home size={20} />
+              </span>
+              <div className="category-text-container">
+                <span className="category-name">Коммунальные услуги</span>
+                <span className="category-desc">Газ, свет, отопление, вывоз мусора</span>
               </div>
-              <span style={arrowStyle}>❯</span>
-            </div>
+              <ChevronRight size={20} className="category-arrow" />
+            </motion.div>
 
             {/* Интернет */}
-            <div style={categoryRowStyle} onClick={() => changeScreen('mock', 'Интернет (Jet / Акнет / Мега-Лайн)')}>
-              <span style={catIconStyle}>🌐</span>
-              <div style={catTextContainerStyle}>
-                <span style={catNameStyle}>Интернет и ТВ</span>
-                <span style={catDescStyle}>Оплата провайдеров по лицевому счету</span>
+            <motion.div
+              whileTap={{ scale: 0.98 }}
+              className="category-row"
+              onClick={() => changeScreen('mock', 'Интернет (Jet / Акнет / Мега-Лайн)')}
+            >
+              <span className="category-icon">
+                <Wifi size={20} />
+              </span>
+              <div className="category-text-container">
+                <span className="category-name">Интернет и ТВ</span>
+                <span className="category-desc">Оплата провайдеров по лицевому счету</span>
               </div>
-              <span style={arrowStyle}>❯</span>
-            </div>
+              <ChevronRight size={20} className="category-arrow" />
+            </motion.div>
 
             {/* Игры */}
-            <div style={categoryRowStyle} onClick={() => changeScreen('mock', 'Steam СНГ пополнение')}>
-              <span style={catIconStyle}>🎮</span>
-              <div style={catTextContainerStyle}>
-                <span style={catNameStyle}>Игры и развлечения</span>
-                <span style={catDescStyle}>Steam, PlayStation Store, Minecraft, Mobile Legends</span>
+            <motion.div
+              whileTap={{ scale: 0.98 }}
+              className="category-row"
+              onClick={() => changeScreen('mock', 'Steam СНГ пополнение')}
+            >
+              <span className="category-icon">
+                <Gamepad2 size={20} />
+              </span>
+              <div className="category-text-container">
+                <span className="category-name">Игры и развлечения</span>
+                <span className="category-desc">Steam, PlayStation Store, Minecraft, Mobile Legends</span>
               </div>
-              <span style={arrowStyle}>❯</span>
-            </div>
+              <ChevronRight size={20} className="category-arrow" />
+            </motion.div>
 
           </div>
         </>
@@ -198,21 +318,49 @@ export default function Transfers() {
       {/* ==================================================================== */}
       {activeSubScreen === 'phone' && (
         <div>
-          <div style={backHeaderStyle} onClick={() => changeScreen('menu')}>⬅️ Назад в платежи</div>
-          <h3 style={formTitleStyle}>Перевод по номеру телефона</h3>
-          <form onSubmit={handlePhoneTransfer} style={formCardStyle}>
-            <div style={inputGroupStyle}>
-              <label style={labelStyle}>Номер телефона получателя</label>
-              <input type="tel" placeholder="+996997555114" value={targetPhone} onChange={e => setTargetPhone(e.target.value)} style={inputStyle} required />
+          <motion.div
+            whileTap={{ scale: 0.98 }}
+            className="back-header"
+            onClick={() => changeScreen('menu')}
+          >
+            <ArrowLeft size={18} />
+            Назад в платежи
+          </motion.div>
+          <h3 className="form-title">Перевод по номеру телефона</h3>
+          <form onSubmit={handlePhoneTransfer} className="form-card">
+            <div className="input-group">
+              <label className="input-label">Номер телефона получателя</label>
+              <input
+                type="tel"
+                inputMode="numeric"
+                placeholder="+996997555114"
+                value={targetPhone}
+                onChange={e => setTargetPhone(e.target.value)}
+                className="form-input"
+                required
+              />
             </div>
-            <div style={inputGroupStyle}>
-              <label style={labelStyle}>Сумма перевода (сомов)</label>
-              <input type="number" placeholder="0.00" value={phoneAmount} onChange={e => setPhoneAmount(e.target.value)} style={inputStyle} required />
-              <span style={balanceBadgeStyle}>Доступно: {user.cardBalance?.toLocaleString('ru-RU')} с</span>
+            <div className="input-group">
+              <label className="input-label">Сумма перевода (сомов)</label>
+              <input
+                type="text"
+                inputMode="decimal"
+                placeholder="0.00"
+                value={phoneAmount}
+                onChange={e => setPhoneAmount(e.target.value)}
+                className="form-input"
+                required
+              />
+              <span className="balance-badge">Доступно: {user.cardBalance?.toLocaleString('ru-RU')} с</span>
             </div>
-            <button type="submit" disabled={loading} style={buttonStyle(loading)}>
+            <motion.button
+              whileTap={{ scale: 0.98 }}
+              type="submit"
+              disabled={loading}
+              className="form-button"
+            >
               {loading ? 'Проведение транзакции...' : 'Подтвердить перевод'}
-            </button>
+            </motion.button>
           </form>
         </div>
       )}
@@ -222,23 +370,46 @@ export default function Transfers() {
       {/* ==================================================================== */}
       {activeSubScreen === 'invest' && (
         <div>
-          <div style={backHeaderStyle} onClick={() => changeScreen('menu')}>⬅️ Назад в платежи</div>
-          <h3 style={formTitleStyle}>Пополнение счета M-Invest</h3>
-          <p style={{ color: '#666d75', fontSize: '13px', marginTop: '-8px', marginBottom: '20px' }}>Перевод денег с основной дебетовой карты на ваш торговый брокерский баланс.</p>
-          
-          <form onSubmit={handleInvestFund} style={formCardStyle}>
-            <div style={inputGroupStyle}>
-              <label style={labelStyle}>Счет списания</label>
-              <div style={staticAccountStyle}>💳 ЭЛКАРТ •••• {user.cardNumber?.slice(-4) || '0000'}</div>
+          <motion.div
+            whileTap={{ scale: 0.98 }}
+            className="back-header"
+            onClick={() => changeScreen('menu')}
+          >
+            <ArrowLeft size={18} />
+            Назад в платежи
+          </motion.div>
+          <h3 className="form-title">Пополнение счета M-Invest</h3>
+          <p style={{ color: 'var(--color-text-tertiary)', fontSize: 'var(--font-size-sm)', marginTop: 'calc(-1 * var(--space-sm))', marginBottom: 'var(--space-lg)' }}>Перевод денег с основной дебетовой карты на ваш торговый брокерский баланс.</p>
+
+          <form onSubmit={handleInvestFund} className="form-card">
+            <div className="input-group">
+              <label className="input-label">Счет списания</label>
+              <div className="static-account">
+                <CreditCard size={18} />
+                ЭЛКАРТ •••• {user.cardNumber?.slice(-4) || '0000'}
+              </div>
             </div>
-            <div style={inputGroupStyle}>
-              <label style={labelStyle}>Сумма пополнения (сомов)</label>
-              <input type="number" placeholder="Сумма" value={investAmount} onChange={e => setInvestAmount(e.target.value)} style={inputStyle} required />
-              <span style={balanceBadgeStyle}>Доступно на карте: {user.cardBalance?.toLocaleString('ru-RU')} с</span>
+            <div className="input-group">
+              <label className="input-label">Сумма пополнения (сомов)</label>
+              <input
+                type="text"
+                inputMode="decimal"
+                placeholder="Сумма"
+                value={investAmount}
+                onChange={e => setInvestAmount(e.target.value)}
+                className="form-input"
+                required
+              />
+              <span className="balance-badge">Доступно на карте: {user.cardBalance?.toLocaleString('ru-RU')} с</span>
             </div>
-            <button type="submit" disabled={loading} style={buttonStyle(loading)}>
+            <motion.button
+              whileTap={{ scale: 0.98 }}
+              type="submit"
+              disabled={loading}
+              className="form-button"
+            >
               {loading ? 'Перевод на брокерский счет...' : 'Пополнить инвест-баланс'}
-            </button>
+            </motion.button>
           </form>
         </div>
       )}
@@ -248,63 +419,70 @@ export default function Transfers() {
       {/* ==================================================================== */}
       {activeSubScreen === 'mock' && (
         <div>
-          <div style={backHeaderStyle} onClick={() => changeScreen('menu')}>⬅️ Назад в платежи</div>
-          <h3 style={formTitleStyle}>{mockTitle}</h3>
-          
-          <form onSubmit={handleMockPay} style={formCardStyle}>
-            <div style={inputGroupStyle}>
-              <label style={labelStyle}>Лицевой счет / Номер договора / Код абонента</label>
-              <input type="text" placeholder="Например: 10449582" value={mockAccount} onChange={e => setMockAccount(e.target.value)} style={inputStyle} required />
+          <motion.div
+            whileTap={{ scale: 0.98 }}
+            className="back-header"
+            onClick={() => changeScreen('menu')}
+          >
+            <ArrowLeft size={18} />
+            Назад в платежи
+          </motion.div>
+          <h3 className="form-title">{mockTitle}</h3>
+
+          <form onSubmit={handleMockPay} className="form-card">
+            <div className="input-group">
+              <label className="input-label">Лицевой счет / Номер договора / Код абонента</label>
+              <input
+                type="text"
+                inputMode="numeric"
+                placeholder="Например: 10449582"
+                value={mockAccount}
+                onChange={e => setMockAccount(e.target.value)}
+                className="form-input"
+                required
+              />
             </div>
-            <div style={inputGroupStyle}>
-              <label style={labelStyle}>Сумма к оплате (сомов)</label>
-              <input type="number" placeholder="0.00" value={mockAmount} onChange={e => setMockAmount(e.target.value)} style={inputStyle} required />
-              <span style={balanceBadgeStyle}>Доступно на карте: {user.cardBalance?.toLocaleString('ru-RU')} с</span>
+            <div className="input-group">
+              <label className="input-label">Сумма к оплате (сомов)</label>
+              <input
+                type="text"
+                inputMode="decimal"
+                placeholder="0.00"
+                value={mockAmount}
+                onChange={e => setMockAmount(e.target.value)}
+                className="form-input"
+                required
+              />
+              <span className="balance-badge">Доступно на карте: {user.cardBalance?.toLocaleString('ru-RU')} с</span>
             </div>
-            <button type="submit" style={buttonStyle(false)}>Оплатить услугу</button>
+            <motion.button
+              whileTap={{ scale: 0.98 }}
+              type="submit"
+              className="form-button"
+            >
+              Оплатить услугу
+            </motion.button>
           </form>
+        </div>
+      )}
+
+      {/* ==================================================================== */}
+      {/* СЦЕНАРИЙ 5: QR-ПЕРЕВОДЫ */}
+      {/* ==================================================================== */}
+      {activeSubScreen === 'qr' && (
+        <div>
+          <motion.div
+            whileTap={{ scale: 0.98 }}
+            className="back-header"
+            onClick={() => changeScreen('menu')}
+          >
+            <ArrowLeft size={18} />
+            Назад в платежи
+          </motion.div>
+          <QRPay />
         </div>
       )}
 
     </div>
   );
 }
-
-// ====================================================================
-// СТИЛИ ПРЕМИАЛЬНОГО ДАШБОРДА ПЛАТЕЖЕЙ
-// ====================================================================
-const containerStyle = { width: '100%', maxWidth: '440px', margin: '0 auto', padding: '10px 2px' };
-const titleStyle = { fontSize: '22px', fontWeight: '700', margin: '0 0 4px 0' };
-const subtitleStyle = { color: '#666d75', fontSize: '13px', margin: '0 0 20px 0' };
-const searchStyle = { width: '92%', padding: '14px 16px', borderRadius: '16px', background: '#14161a', border: '1px solid #202329', color: '#fff', fontSize: '14px', marginBottom: '24px', outline: 'none' };
-
-const sectionTitleStyle = { margin: '0 0 14px 4px', fontSize: '14px', fontWeight: '700', color: '#8c8c8c', textAlign: 'left', letterSpacing: '0.2px' };
-
-// Горизонтальный скролл частых платежей
-const horizontalScrollStyle = { display: 'flex', gap: '16px', overflowX: 'auto', paddingBottom: '14px', marginBottom: '24px', paddingLeft: '4px' };
-const favItemStyle = { display: 'flex', flexDirection: 'column', alignItems: 'center', cursor: 'pointer', minWidth: '70px' };
-const favIconWrapperStyle = (bg, color = '#fff') => ({ width: '50px', height: '50px', borderRadius: '50%', background: bg, display: 'flex', justifyContent: 'center', alignItems: 'center', fontSize: '20px', color: color, border: '1px solid #202329', boxShadow: '0 4px 10px rgba(0,0,0,0.2)' });
-const favLabelStyle = { fontSize: '11px', color: '#fff', marginTop: '8px', fontWeight: '500', maxWidth: '75px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' };
-
-// Список категорий
-const categoryListStyle = { display: 'flex', flexDirection: 'column', gap: '10px' };
-const categoryRowStyle = { display: 'flex', alignItems: 'center', background: '#14161a', padding: '16px', borderRadius: '20px', border: '1px solid #202329', cursor: 'pointer', transition: '0.2s' };
-const catIconStyle = { width: '42px', height: '42px', borderRadius: '12px', background: '#1c1f26', display: 'flex', justifyContent: 'center', alignItems: 'center', fontSize: '18px', marginRight: '14px' };
-const catTextContainerStyle = { flex: 1, display: 'flex', flexDirection: 'column', textAlign: 'left', gap: '2px' };
-const catNameStyle = { fontSize: '14px', fontWeight: '700', color: '#fff' };
-const catDescStyle = { fontSize: '11px', color: '#666d75' };
-const arrowStyle = { color: '#333842', fontSize: '14px', paddingRight: '4px' };
-
-// Стили форм подстраниц
-const backHeaderStyle = { color: '#11bb77', fontSize: '14px', fontWeight: '600', cursor: 'pointer', textAlign: 'left', marginBottom: '16px', display: 'inline-block' };
-const formTitleStyle = { fontSize: '18px', fontWeight: '700', margin: '0 0 16px 0', textAlign: 'left' };
-const formCardStyle = { background: '#14161a', padding: '24px', borderRadius: '24px', border: '1px solid #202329', display: 'flex', flexDirection: 'column', gap: '18px' };
-const inputGroupStyle = { textAlign: 'left', display: 'flex', flexDirection: 'column', gap: '6px' };
-const labelStyle = { color: '#8c8c8c', fontSize: '12px', paddingLeft: '4px' };
-const inputStyle = { width: '90%', padding: '14px 16px', borderRadius: '14px', border: '1px solid #202329', background: '#1c1f26', color: '#fff', fontSize: '16px', outline: 'none' };
-const staticAccountStyle = { padding: '14px 16px', borderRadius: '14px', background: '#1c1f26', border: '1px solid #202329', color: '#8c8c8c', fontSize: '15px', fontWeight: '600' };
-const balanceBadgeStyle = { fontSize: '12px', color: '#666d75', marginTop: '4px', paddingLeft: '4px' };
-
-const errorStyle = { background: 'rgba(255, 77, 79, 0.1)', border: '1px solid #ff4d4f', color: '#ff4d4f', padding: '12px', borderRadius: '14px', fontSize: '13px', marginBottom: '16px', textAlign: 'left' };
-const successStyle = { background: 'rgba(17, 187, 119, 0.1)', border: '1px solid #11bb77', color: '#11bb77', padding: '12px', borderRadius: '14px', fontSize: '13px', marginBottom: '16px', textAlign: 'left' };
-const buttonStyle = (loading) => ({ padding: '16px', borderRadius: '16px', border: 'none', background: loading ? '#0c6e47' : '#11bb77', color: '#000', fontWeight: '700', fontSize: '16px', cursor: loading ? 'not-allowed' : 'pointer', marginTop: '8px', boxShadow: '0 4px 12px rgba(17,187,119,0.2)' });

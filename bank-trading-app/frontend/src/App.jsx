@@ -1,12 +1,19 @@
 import React, { useState } from 'react';
 import { useTradingStore } from './store/useTradingStore';
+import { API_BASE_URL } from './config';
+import { Home, ArrowUpRight, User, Banknote, Bell, Bot } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import toast, { Toaster } from 'react-hot-toast';
+import './styles/app.css';
 
 // Импорт страниц твоего банковского приложения (строгое соответствие регистру)
 import Main from './pages/Main';
-import Transfers from './pages/Transfer'; 
-import Invest from './pages/invest';       
+import Transfers from './pages/Transfer';
+import Invest from './pages/invest';
 import Profile from './pages/Profile';
 import Credits from './pages/Credits';
+import ZhabaAssistant from './pages/ZhabaAssistant';
+import Register from './pages/register';
 
 export default function App() {
   // Вытаскиваем состояние из Zustand через селекторы, чтобы избежать багов деструктуризации
@@ -19,6 +26,7 @@ export default function App() {
   const [phoneInput, setPhoneInput] = useState('');
   const [passwordInput, setPasswordInput] = useState('');
   const [authLoading, setAuthLoading] = useState(false);
+  const [showRegister, setShowRegister] = useState(false);
 
   // Безопасный фолбек для навигации
   const setActiveTab = storeSetActiveTab || ((tab) => {
@@ -36,22 +44,26 @@ export default function App() {
   // Вход через бэкенд (Node.js + SQLite)
   const handleLoginSubmit = async (e) => {
     e.preventDefault();
-    if (!phoneInput || !passwordInput) return alert('Заполните все поля!');
+    if (!phoneInput || !passwordInput) {
+      toast.error('Заполните все поля!');
+      return;
+    }
     setAuthLoading(true);
     try {
-      const res = await fetch('http://localhost:3001/api/auth/login', {
+      const res = await fetch(`${API_BASE_URL}/api/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ phoneNumber: phoneInput, password: passwordInput })
       });
       const data = await res.json();
       if (res.ok) {
-        setUser(data); 
+        setUser(data);
+        toast.success('Добро пожаловать в BakaBank!');
       } else {
-        alert(data.error || 'Ошибка входа');
+        toast.error(data.error || 'Ошибка входа');
       }
     } catch (err) {
-      alert('Нет связи с сервером! Проверь, запущен ли node server.js');
+      toast.error('Нет связи с сервером! Проверь, запущен ли node server.js');
     } finally {
       setAuthLoading(false);
     }
@@ -74,47 +86,79 @@ export default function App() {
   // ИНТЕРФЕЙС АВТОРИЗАЦИИ (ЕСЛИ USER === NULL)
   // ====================================================================
   if (!user) {
+    if (showRegister) {
+      return <Register onSwitchToAuth={() => setShowRegister(false)} />;
+    }
+
     return (
-      <div style={authFallbackStyle}>
-        <div style={authCardStyle}>
-          <div style={{ textAlign: 'center', marginBottom: '24px' }}>
-            <h2 style={{ fontSize: '28px', fontWeight: '900', color: '#11bb77', margin: '0 0 6px 0' }}>BakaBank</h2>
-            <p style={{ color: '#666d75', fontSize: '13px', margin: 0 }}>Цифровой суперапп • Вход</p>
+      <div className="auth-container">
+        <Toaster position="top-center" toastOptions={{
+          style: { background: 'var(--color-surface)', color: 'var(--color-text-primary)', border: '1px solid var(--color-border)' },
+          success: { iconTheme: { primary: 'var(--color-accent-success)', secondary: '#fff' } },
+          error: { iconTheme: { primary: 'var(--color-accent-error)', secondary: '#fff' } }
+        }} />
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="auth-card"
+        >
+          <div className="auth-header">
+            <h2 className="auth-logo">BakaBank</h2>
+            <p className="auth-subtitle">Цифровой суперапп • Вход</p>
           </div>
 
-          <form onSubmit={handleLoginSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-            <div>
-              <label style={inputLabelStyle}>Номер телефона</label>
-              <input 
-                type="text" 
-                placeholder="0700 123 456" 
-                value={phoneInput} 
-                onChange={e => setPhoneInput(e.target.value)} 
-                style={authInputStyle} 
+          <form onSubmit={handleLoginSubmit} className="auth-form">
+            <div className="input-group">
+              <label className="input-label">Номер телефона</label>
+              <input
+                type="tel"
+                inputMode="numeric"
+                placeholder="0700 123 456"
+                value={phoneInput}
+                onChange={e => setPhoneInput(e.target.value)}
+                className="auth-input"
               />
             </div>
-            <div>
-              <label style={inputLabelStyle}>Пароль</label>
-              <input 
-                type="password" 
-                placeholder="••••••••" 
-                value={passwordInput} 
-                onChange={e => setPasswordInput(e.target.value)} 
-                style={authInputStyle} 
+            <div className="input-group">
+              <label className="input-label">Пароль</label>
+              <input
+                type="password"
+                placeholder="••••••••"
+                value={passwordInput}
+                onChange={e => setPasswordInput(e.target.value)}
+                className="auth-input"
               />
             </div>
 
-            <button type="submit" disabled={authLoading} style={loginBtnStyle}>
+            <motion.button
+              whileTap={{ scale: 0.98 }}
+              type="submit"
+              disabled={authLoading}
+              className="auth-button"
+            >
               {authLoading ? 'Проверка...' : 'Войти в кабинет'}
-            </button>
+            </motion.button>
           </form>
 
-          <div style={{ textAlign: 'center', marginTop: '20px', borderTop: '1px solid #202329', paddingTop: '16px' }}>
-            <button onClick={handleDemoLogin} style={demoBtnStyle}>
+          <div className="auth-divider">
+            <motion.button
+              whileTap={{ scale: 0.98 }}
+              onClick={handleDemoLogin}
+              className="demo-button"
+            >
               ⚡ Быстрый демо-вход (Бекжан)
-            </button>
+            </motion.button>
+
+            <motion.button
+              whileTap={{ scale: 0.98 }}
+              onClick={() => setShowRegister(true)}
+              className="register-button"
+              style={{ marginTop: 'var(--space-md)' }}
+            >
+              Создать новый аккаунт
+            </motion.button>
           </div>
-        </div>
+        </motion.div>
       </div>
     );
   }
@@ -123,62 +167,95 @@ export default function App() {
   // ОСНОВНОЙ ИНТЕРФЕЙС БАНКА (ПОСЛЕ ВХОДА)
   // ====================================================================
   return (
-    <div style={appContainerStyle}>
-      
+    <div className="app-container">
+      <Toaster position="top-center" toastOptions={{
+        style: { background: 'var(--color-surface)', color: 'var(--color-text-primary)', border: '1px solid var(--color-border)' },
+        success: { iconTheme: { primary: 'var(--color-accent-success)', secondary: '#fff' } },
+        error: { iconTheme: { primary: 'var(--color-accent-error)', secondary: '#fff' } }
+      }} />
+
       {/* СТАТУС-ХЕДЕР */}
-      <header style={headerStyle}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <div style={avatarStyle}>👋</div>
-          <div>
-            <span style={greetingStyle}>Салам,</span>
-            <h3 style={userNameStyle}>{user.fullName || 'Клиент BakaBank'}</h3>
+      <header className="app-header">
+        <div className="header-left">
+          <div className="user-avatar">
+            <User size={20} strokeWidth={2.5} />
+          </div>
+          <div className="user-info">
+            <span className="greeting-text">Салам,</span>
+            <h3 className="user-name">{user.fullName || 'Клиент BakaBank'}</h3>
           </div>
         </div>
-        <div style={notificationBadgeStyle}>🔔</div>
+        <motion.div whileTap={{ scale: 0.9 }} className="notification-badge">
+          <Bell size={20} strokeWidth={2.5} />
+        </motion.div>
       </header>
 
       {/* КОНТЕНТ ВКЛАДОК */}
-      <main style={mainContentStyle}>
-        {activeTab === 'main' && <Main />}
-        {activeTab === 'transfers' && <Transfers />}
-        {activeTab === 'invest' && <Invest />}
-        {activeTab === 'profile' && <Profile />}
-        {activeTab === 'credits' && <Credits />}
+      <main className="main-content">
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={activeTab}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.15 }}
+          >
+            {activeTab === 'main' && <Main />}
+            {activeTab === 'transfers' && <Transfers />}
+            {activeTab === 'invest' && <Invest />}
+            {activeTab === 'profile' && <Profile />}
+            {activeTab === 'credits' && <Credits />}
+            {activeTab === 'zhaba' && <ZhabaAssistant />}
+          </motion.div>
+        </AnimatePresence>
       </main>
 
       {/* НИЖНИЙ НАВБАР */}
-      <footer style={navBarStyle}>
-        <div onClick={() => setActiveTab('main')} style={navItemStyle(activeTab === 'main')}>
-          <span style={navIconStyle}>🏠</span>
-          <span>Главная</span>
-        </div>
-        
-        <div onClick={() => setActiveTab('transfers')} style={navItemStyle(activeTab === 'transfers')}>
-          <span style={navIconStyle}>↗️</span>
-          <span>Платежи</span>
-        </div>
-        
-        {/* Центральная неоновая кнопка Кредитов */}
-        <div 
-          onClick={() => setActiveTab('credits')}
-          style={{
-            ...qrButtonStyle, 
-            background: activeTab === 'credits' ? '#11bb77' : '#ffcc00',
-            boxShadow: activeTab === 'credits' ? '0 6px 20px rgba(17,187,119,0.4)' : '0 6px 20px rgba(255,204,0,0.3)'
-          }} 
+      <footer className="tab-bar">
+        <motion.div
+          whileTap={{ scale: 0.9 }}
+          onClick={() => setActiveTab('main')}
+          className={`tab-item ${activeTab === 'main' ? 'active' : ''}`}
         >
-          💸
-        </div>
+          <Home size={24} strokeWidth={2.5} className="tab-icon" />
+          <span>Главная</span>
+        </motion.div>
 
-        <div onClick={() => setActiveTab('invest')} style={navItemStyle(activeTab === 'invest')}>
-          <span style={navIconStyle}>📊</span>
-          <span>M-Invest</span>
-        </div>
+        <motion.div
+          whileTap={{ scale: 0.9 }}
+          onClick={() => setActiveTab('transfers')}
+          className={`tab-item ${activeTab === 'transfers' ? 'active' : ''}`}
+        >
+          <ArrowUpRight size={24} strokeWidth={2.5} className="tab-icon" />
+          <span>Платежи</span>
+        </motion.div>
 
-        <div onClick={() => setActiveTab('profile')} style={navItemStyle(activeTab === 'profile')}>
-          <span style={navIconStyle}>⚙️</span>
-          <span>Еще</span>
-        </div>
+        {/* Центральная FAB кнопка */}
+        <motion.div
+          whileTap={{ scale: 0.95 }}
+          onClick={() => setActiveTab('credits')}
+          className={`center-fab ${activeTab === 'credits' ? 'active' : ''}`}
+        >
+          <Banknote size={28} color="rgba(255, 255, 255, 0.9)" strokeWidth={2.5} />
+        </motion.div>
+
+        <motion.div
+          whileTap={{ scale: 0.9 }}
+          onClick={() => setActiveTab('zhaba')}
+          className={`tab-item ${activeTab === 'zhaba' ? 'active' : ''}`}
+        >
+          <Bot size={24} strokeWidth={2.5} className="tab-icon" />
+          <span>ЖАБА</span>
+        </motion.div>
+
+        <motion.div
+          whileTap={{ scale: 0.9 }}
+          onClick={() => setActiveTab('profile')}
+          className={`tab-item ${activeTab === 'profile' ? 'active' : ''}`}
+        >
+          <User size={24} strokeWidth={2.5} className="tab-icon" />
+          <span>Профиль</span>
+        </motion.div>
       </footer>
 
     </div>
@@ -192,15 +269,14 @@ const appContainerStyle = { background: '#0b0c0e', minHeight: '100vh', color: '#
 const mainContentStyle = { padding: '0 16px 120px 16px', maxWidth: '440px', margin: '0 auto' };
 
 const headerStyle = { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 16px 16px 16px', maxWidth: '440px', margin: '0 auto' };
-const avatarStyle = { width: '38px', height: '38px', borderRadius: '50%', background: '#14161a', border: '1px solid #202329', display: 'flex', justifyContent: 'center', alignItems: 'center', fontSize: '16px' };
+const avatarStyle = { width: '38px', height: '38px', borderRadius: '50%', background: '#14161a', border: '1px solid #202329', display: 'flex', justifyContent: 'center', alignItems: 'center' };
 const greetingStyle = { fontSize: '11px', color: '#525a64', display: 'block', textAlign: 'left' };
 const userNameStyle = { margin: 0, fontSize: '14px', fontWeight: '700', color: '#fff', textAlign: 'left' };
-const notificationBadgeStyle = { width: '38px', height: '38px', borderRadius: '12px', background: '#14161a', border: '1px solid #202329', display: 'flex', justifyContent: 'center', alignItems: 'center', fontSize: '16px', cursor: 'pointer' };
+const notificationBadgeStyle = { width: '38px', height: '38px', borderRadius: '12px', background: '#14161a', border: '1px solid #202329', display: 'flex', justifyContent: 'center', alignItems: 'center', cursor: 'pointer' };
 
 const navBarStyle = { position: 'fixed', bottom: 0, left: 0, right: 0, height: '78px', background: 'rgba(20, 22, 26, 0.95)', backdropFilter: 'blur(10px)', borderTop: '1px solid #202329', display: 'flex', justifyContent: 'space-around', alignItems: 'center', zIndex: 1000, paddingBottom: 'env(safe-area-inset-bottom)' };
 const navItemStyle = (active) => ({ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', color: active ? '#11bb77' : '#525a64', fontSize: '10px', fontWeight: '700', cursor: 'pointer', width: '60px', transition: 'color 0.2s ease' });
-const navIconStyle = { fontSize: '20px', marginBottom: '2px' };
-const qrButtonStyle = { width: '54px', height: '54px', borderRadius: '18px', display: 'flex', justifyContent: 'center', alignItems: 'center', fontSize: '24px', color: '#000', cursor: 'pointer', marginTop: '-32px', transition: 'all 0.2s ease-in-out', userSelect: 'none' };
+const qrButtonStyle = { width: '54px', height: '54px', borderRadius: '18px', display: 'flex', justifyContent: 'center', alignItems: 'center', cursor: 'pointer', marginTop: '-32px', transition: 'all 0.2s ease-in-out', userSelect: 'none' };
 
 const authFallbackStyle = { background: '#0b0c0e', minHeight: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center', color: '#fff', fontFamily: 'system-ui, sans-serif', padding: '16px' };
 const authCardStyle = { background: '#14161a', width: '100%', maxWidth: '360px', padding: '30px 24px', borderRadius: '28px', border: '1px solid #202329', boxShadow: '0 20px 40px rgba(0,0,0,0.5)' };

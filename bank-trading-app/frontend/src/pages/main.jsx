@@ -1,215 +1,151 @@
 import React, { useState } from 'react';
-import { useTradingStore } from './store/useTradingStore';
+import { useTradingStore } from '../store/useTradingStore';
+import { CreditCard, Send, TrendingUp, Banknote, Smartphone, Eye, EyeOff, Wallet, PiggyBank, Plus, ArrowUpRight } from 'lucide-react';
+import { motion } from 'framer-motion';
+import '../styles/dashboard.css';
 
-// Импорт страниц твоего банковского приложения (строгое соответствие регистру)
-import Main from './pages/Main';
-import Transfers from './pages/Transfers'; 
-import Invest from './pages/Invest';       
-import Profile from './pages/Profile';
-import Credits from './pages/Credits';
+export default function Main() {
+  const { user, setActiveTab } = useTradingStore();
+  const [balanceVisible, setBalanceVisible] = useState(true);
 
-export default function App() {
-  // Точечно вытаскиваем состояние из Zustand через селекторы, чтобы избежать багов деструктуризации
-  const user = useTradingStore((state) => state.user);
-  const setUser = useTradingStore((state) => state.setUser);
-  const activeTab = useTradingStore((state) => state.activeTab || 'main');
-  const storeSetActiveTab = useTradingStore((state) => state.setActiveTab);
-
-  // Состояния для встроенной формы авторизации (если юзер разлогинен)
-  const [phoneInput, setPhoneInput] = useState('');
-  const [passwordInput, setPasswordInput] = useState('');
-  const [authLoading, setAuthLoading] = useState(false);
-
-  // Безопасный фолбек для навигации
-  const setActiveTab = storeSetActiveTab || ((tab) => {
-    const raw = localStorage.getItem('bakabank-session');
-    if (raw) {
-      try {
-        const parsed = JSON.parse(raw);
-        parsed.state.activeTab = tab;
-        localStorage.setItem('bakabank-session', JSON.stringify(parsed));
-        window.location.reload();
-      } catch(e) {}
-    }
-  });
-
-  // Реальный хэндлер входа через твой бэкенд (Node.js + SQLite)
-  const handleLoginSubmit = async (e) => {
-    e.preventDefault();
-    if (!phoneInput || !passwordInput) return alert('Заполните все поля!');
-    setAuthLoading(true);
-    try {
-      const res = await fetch('http://localhost:3001/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phoneNumber: phoneInput, password: passwordInput })
-      });
-      const data = await res.json();
-      if (res.ok) {
-        setUser(data); // Записываем юзера в Zustand, и экран блокировки пропадет
-      } else {
-        alert(data.error || 'Ошибка входа');
-      }
-    } catch (err) {
-      alert('Нет связи с бэкендом! Проверь, запущен ли node server.js');
-    } finally {
-      setAuthLoading(false);
-    }
-  };
-
-  // Быстрый демо-вход для тестов, если бэкенд отключен
-  const handleDemoLogin = () => {
-    setUser({
-      id: 1,
-      fullName: 'Шаршеналиев Бекжан',
-      phoneNumber: '0700123456',
-      cardNumber: '4000 7532 9912 0043',
-      cardBalance: 50000,
-      investBalance: 0,
-      piggyBalance: 0
-    });
-  };
-
-  // ====================================================================
-  // ЭКРАН БЛОКИРОВКИ / АВТОРИЗАЦИИ (ЕСЛИ USER === NULL)
-  // ====================================================================
   if (!user) {
     return (
-      <div style={authFallbackStyle}>
-        <div style={authCardStyle}>
-          <div style={{ textAlign: 'center', marginBottom: '24px' }}>
-            <h2 style={{ fontSize: '28px', fontWeight: '900', color: '#11bb77', margin: '0 0 6px 0' }}>BakaBank</h2>
-            <p style={{ color: '#666d75', fontSize: '13px', margin: 0 }}>Цифровой суперапп • Вход в систему</p>
-          </div>
-
-          <form onSubmit={handleLoginSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-            <div>
-              <label style={inputLabelStyle}>Номер телефона</label>
-              <input 
-                type="text" 
-                placeholder="0700 123 456" 
-                value={phoneInput} 
-                onChange={e => setPhoneInput(e.target.value)} 
-                style={authInputStyle} 
-              />
-            </div>
-            <div>
-              <label style={inputLabelStyle}>Пароль доступа</label>
-              <input 
-                type="password" 
-                placeholder="••••••••" 
-                value={passwordInput} 
-                onChange={e => setPasswordInput(e.target.value)} 
-                style={authInputStyle} 
-              />
-            </div>
-
-            <button type="submit" disabled={authLoading} style={loginBtnStyle}>
-              {authLoading ? 'Проверка скоринга...' : 'Войти в личный кабинет'}
-            </button>
-          </form>
-
-          <div style={{ textAlign: 'center', marginTop: '20px', borderTop: '1px solid #202329', paddingTop: '16px' }}>
-            <span style={{ color: '#525a64', fontSize: '12px', display: 'block', marginBottom: '10px' }}>Или используйте локальный профиль:</span>
-            <button onClick={handleDemoLogin} style={demoBtnStyle}>
-              ⚡ Быстрый демо-вход (Бекжан)
-            </button>
-          </div>
-        </div>
+      <div className="loading-container">
+        <div className="loading-spinner" />
+        <p>Загрузка...</p>
       </div>
     );
   }
 
-  // ====================================================================
-  // ОСНОВНОЙ РАБОЧИЙ ИНТЕРФЕЙС БАНКА
-  // ====================================================================
+  const maskBalance = () => '••• •••';
+
+  const quickActions = [
+    { id: 'transfer', icon: Send, label: 'Перевод', color: '#0A84FF', tab: 'transfers' },
+    { id: 'invest', icon: TrendingUp, label: 'Инвестиции', color: '#30D158', tab: 'invest' },
+    { id: 'credit', icon: Banknote, label: 'Кредит', color: '#FFD60A', tab: 'credits' },
+    { id: 'payment', icon: Smartphone, label: 'Оплата', color: '#FF453A', tab: 'transfers' }
+  ];
+
   return (
-    <div style={appContainerStyle}>
-      
-      {/* ПРЕМИАЛЬНЫЙ СТАТУС-ХЕДЕР */}
-      <header style={headerStyle}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <div style={avatarStyle}>👋</div>
-          <div>
-            <span style={greetingStyle}>Салам,</span>
-            <h3 style={userNameStyle}>{user.fullName || 'Клиент BakaBank'}</h3>
+    <div className="dashboard">
+      {/* PREMIUM CARD */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="premium-card"
+      >
+        <div className="card-noise" />
+        <div className="card-gradient" />
+
+        <div className="card-header">
+          <div className="card-label">Дебетовая карта</div>
+          <motion.button
+            whileTap={{ scale: 0.9 }}
+            onClick={() => setBalanceVisible(!balanceVisible)}
+            className="eye-button"
+          >
+            {balanceVisible ? <EyeOff size={20} /> : <Eye size={20} />}
+          </motion.button>
+        </div>
+
+        <div className="card-balance">
+          {balanceVisible ? (
+            <>
+              <span className="balance-amount">{user.cardBalance?.toLocaleString('ru-RU') || '0'}</span>
+              <span className="balance-currency">сом</span>
+            </>
+          ) : (
+            <span className="balance-hidden">{maskBalance()}</span>
+          )}
+        </div>
+
+        <div className="card-footer">
+          <div className="card-number">
+            <CreditCard size={16} className="card-icon" />
+            <span>{user.cardNumber || '•••• •••• •••• ••••'}</span>
           </div>
+          <div className="card-chip" />
         </div>
-        <div style={notificationBadgeStyle}>🔔</div>
-      </header>
+      </motion.div>
 
-      {/* КОНТЕНТ ТЕКУЩЕЙ АКТИВНОЙ ВКЛАДКИ */}
-      <main style={mainContentStyle}>
-        {activeTab === 'main' && <Main />}
-        {activeTab === 'transfers' && <Transfers />}
-        {activeTab === 'invest' && <Invest />}
-        {activeTab === 'profile' && <Profile />}
-        {activeTab === 'credits' && <Credits />}
-      </main>
+      {/* QUICK ACTIONS */}
+      <div className="section">
+        <h3 className="section-title">Быстрые действия</h3>
+        <div className="quick-actions">
+          {quickActions.map((action, index) => (
+            <motion.button
+              key={action.id}
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: index * 0.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => setActiveTab(action.tab)}
+              className="action-button"
+              style={{ '--action-color': action.color }}
+            >
+              <div className="action-icon">
+                <action.icon size={24} strokeWidth={2.5} />
+              </div>
+              <span className="action-label">{action.label}</span>
+            </motion.button>
+          ))}
+        </div>
+      </div>
 
-      {/* ТАКТИЛЬНЫЙ НИЖНИЙ НАВБАР */}
-      <footer style={navBarStyle}>
-        <div onClick={() => setActiveTab('main')} style={navItemStyle(activeTab === 'main')}>
-          <span style={navIconStyle}>🏠</span>
-          <span>Главная</span>
-        </div>
-        
-        <div onClick={() => setActiveTab('transfers')} style={navItemStyle(activeTab === 'transfers')}>
-          <span style={navIconStyle}>↗️</span>
-          <span>Платежи</span>
-        </div>
-        
-        {/* Центральная неоновая кнопка Кредитного Конвейера */}
-        <div 
-          onClick={() => setActiveTab('credits')}
-          style={{
-            ...qrButtonStyle, 
-            background: activeTab === 'credits' ? '#11bb77' : '#ffcc00',
-            boxShadow: activeTab === 'credits' ? '0 6px 20px rgba(17,187,119,0.4)' : '0 6px 20px rgba(255,204,0,0.3)'
-          }} 
-          title="Кредитный конвейер"
-        >
-          💸
-        </div>
-
-        <div onClick={() => setActiveTab('invest')} style={navItemStyle(activeTab === 'invest')}>
-          <span style={navIconStyle}>📊</span>
-          <span>M-Invest</span>
+      {/* ACCOUNTS */}
+      <div className="section">
+        <div className="section-header">
+          <h3 className="section-title">Другие счета</h3>
+          <button className="section-action">
+            <Plus size={18} />
+          </button>
         </div>
 
-        <div onClick={() => setActiveTab('profile')} style={navItemStyle(activeTab === 'profile')}>
-          <span style={navIconStyle}>⚙️</span>
-          <span>Еще</span>
-        </div>
-      </footer>
+        <div className="accounts-list">
+          <motion.button
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.1 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={() => setActiveTab('invest')}
+            className="account-card"
+          >
+            <div className="account-icon" style={{ background: 'linear-gradient(135deg, #30D158 0%, #00C7BE 100%)' }}>
+              <TrendingUp size={24} strokeWidth={2.5} />
+            </div>
+            <div className="account-info">
+              <span className="account-label">M-Invest</span>
+              <span className="account-sublabel">Брокерский счет</span>
+            </div>
+            <div className="account-balance">
+              <span className="account-amount">{user.investBalance?.toLocaleString('ru-RU') || '0'}</span>
+              <span className="account-currency">с</span>
+            </div>
+            <ArrowUpRight size={20} className="account-arrow" />
+          </motion.button>
 
+          <motion.button
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.15 }}
+            whileTap={{ scale: 0.98 }}
+            className="account-card"
+          >
+            <div className="account-icon" style={{ background: 'linear-gradient(135deg, #FFD60A 0%, #FF9500 100%)' }}>
+              <PiggyBank size={24} strokeWidth={2.5} />
+            </div>
+            <div className="account-info">
+              <span className="account-label">Копилка</span>
+              <span className="account-sublabel">Накопительный счет</span>
+            </div>
+            <div className="account-balance">
+              <span className="account-amount">{user.piggyBalance?.toLocaleString('ru-RU') || '0'}</span>
+              <span className="account-currency">с</span>
+            </div>
+            <ArrowUpRight size={20} className="account-arrow" />
+          </motion.button>
+        </div>
+      </div>
     </div>
   );
 }
-
-// ====================================================================
-// ПОЛНАЯ СИСТЕМА СТИЛЕЙ БАНКА (PREMIUM DARK SYSTEM)
-// ====================================================================
-const appContainerStyle = { background: '#0b0c0e', minHeight: '100vh', color: '#fff', fontFamily: 'system-ui, sans-serif', position: 'relative' };
-const mainContentStyle = { padding: '0 16px 120px 16px', maxWidth: '440px', margin: '0 auto' };
-
-// Стили хедера
-const headerStyle = { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 16px 16px 16px', maxWidth: '440px', margin: '0 auto' };
-const avatarStyle = { width: '38px', height: '38px', borderRadius: '50%', background: '#14161a', border: '1px solid #202329', display: 'flex', justifyContent: 'center', alignItems: 'center', fontSize: '16px' };
-const greetingStyle = { fontSize: '11px', color: '#525a64', display: 'block', textAlign: 'left' };
-const userNameStyle = { margin: 0, fontSize: '14px', fontWeight: '700', color: '#fff', textAlign: 'left' };
-const notificationBadgeStyle = { width: '38px', height: '38px', borderRadius: '12px', background: '#14161a', border: '1px solid #202329', display: 'flex', justifyContent: 'center', alignItems: 'center', fontSize: '16px', cursor: 'pointer' };
-
-// Стили навбара
-const navBarStyle = { position: 'fixed', bottom: 0, left: 0, right: 0, height: '78px', background: 'rgba(20, 22, 26, 0.95)', backdropFilter: 'blur(10px)', borderTop: '1px solid #202329', display: 'flex', justifyContent: 'space-around', alignItems: 'center', zIndex: 1000, paddingBottom: 'env(safe-area-inset-bottom)' };
-const navItemStyle = (active) => ({ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', color: active ? '#11bb77' : '#525a64', fontSize: '10px', fontWeight: '700', cursor: 'pointer', width: '60px', transition: 'color 0.2s ease' });
-const navIconStyle = { fontSize: '20px', marginBottom: '2px' };
-const qrButtonStyle = { width: '54px', height: '54px', borderRadius: '18px', display: 'flex', justifyContent: 'center', alignItems: 'center', fontSize: '24px', color: '#000', cursor: 'pointer', marginTop: '-32px', transition: 'all 0.2s ease-in-out', userSelect: 'none' };
-
-// Стили авторизации
-const authFallbackStyle = { background: '#0b0c0e', minHeight: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center', color: '#fff', fontFamily: 'system-ui, sans-serif', padding: '16px' };
-const authCardStyle = { background: '#14161a', width: '100%', maxWidth: '360px', padding: '30px 24px', borderRadius: '28px', border: '1px solid #202329', boxShadow: '0 20px 40px rgba(0,0,0,0.5)' };
-const inputLabelStyle = { fontSize: '11px', color: '#525a64', display: 'block', marginBottom: '6px', textAlign: 'left', fontWeight: '600', letterSpacing: '0.3px' };
-const authInputStyle = { width: '100%', boxSizing: 'border-box', padding: '14px 16px', background: '#0b0c0e', border: '1px solid #202329', borderRadius: '14px', color: '#fff', fontSize: '14px', outline: 'none', marginBottom: '4px' };
-const loginBtnStyle = { width: '100%', padding: '16px', background: '#11bb77', color: '#000', border: 'none', borderRadius: '14px', fontWeight: '700', fontSize: '15px', cursor: 'pointer', marginTop: '10px', transition: 'background 0.2s' };
-const demoBtnStyle = { width: '100%', padding: '12px', background: 'transparent', color: '#ffcc00', border: '1px dashed #ffcc00', borderRadius: '14px', fontWeight: '600', fontSize: '13px', cursor: 'pointer' };

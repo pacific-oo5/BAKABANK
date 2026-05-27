@@ -5,7 +5,10 @@ const cors = require('cors');
 const path = require('path');
 
 const app = express();
-app.use(cors());
+app.use(cors({
+  origin: ['http://localhost:5173', 'https://supersympathetic-dana-disharmoniously.ngrok-free.dev'],
+  credentials: true
+}));
 app.use(express.json());
 
 // ====================================================================
@@ -49,6 +52,17 @@ db.serialize(() => {
     monthlyPayment REAL,
     termMonths INTEGER,
     nextPaymentDate TEXT
+  )`);
+
+  db.run(`CREATE TABLE IF NOT EXISTS transactions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    userId INTEGER,
+    type TEXT,
+    symbol TEXT,
+    quantity INTEGER,
+    price REAL,
+    total REAL,
+    timestamp TEXT DEFAULT CURRENT_TIMESTAMP
   )`);
 });
 
@@ -188,6 +202,42 @@ app.post('/api/bank/fund-invest', (req, res) => {
   });
 });
 
+// QR-ПЕРЕВОДЫ
+app.post('/api/bank/transfer-qr', (req, res) => {
+  const { senderId, recipientId, amount } = req.body;
+  const amt = parseFloat(amount);
+
+  if (!senderId || !recipientId || !amt || amt <= 0) {
+    return res.status(400).json({ error: 'Некорректные данные перевода' });
+  }
+
+  if (senderId === recipientId) {
+    return res.status(400).json({ error: 'Нельзя переводить самому себе' });
+  }
+
+  db.get(`SELECT cardBalance FROM users WHERE id = ?`, [senderId], (err, senderRow) => {
+    if (err) return res.status(500).json({ error: err.message });
+    if (!senderRow) return res.status(404).json({ error: 'Отправитель не найден' });
+    if (senderRow.cardBalance < amt) return res.status(400).json({ error: 'Недостаточно средств на карте' });
+
+    db.get(`SELECT id FROM users WHERE id = ?`, [recipientId], (err, recipientRow) => {
+      if (err) return res.status(500).json({ error: err.message });
+      if (!recipientRow) return res.status(404).json({ error: 'Получатель не найден' });
+
+      db.serialize(() => {
+        db.run(`UPDATE users SET cardBalance = cardBalance - ? WHERE id = ?`, [amt, senderId]);
+        db.run(`UPDATE users SET cardBalance = cardBalance + ? WHERE id = ?`, [amt, recipientId], (err) => {
+          if (err) return res.status(500).json({ error: 'Ошибка транзакции' });
+          db.get(`SELECT * FROM users WHERE id = ?`, [senderId], (err, updatedUser) => {
+            delete updatedUser.passwordHash;
+            res.json({ message: `Успешно переведено ${amt} сомов по QR-коду`, user: updatedUser });
+          });
+        });
+      });
+    });
+  });
+});
+
 // ====================================================================
 // 6. КРЕДИТНЫЙ КОНВЕЙЕР (ИСПРАВЛЕНЫ ОШИБКИ ПОДГРУЗКИ)
 // ====================================================================
@@ -290,8 +340,11 @@ app.post('/api/invest/buy', (req, res) => {
 
     db.serialize(() => {
       db.run(`UPDATE users SET investBalance = investBalance - ? WHERE id = ?`, [totalCost, userId]);
-      db.run(`INSERT INTO portfolio (userId, symbol, quantity, avgPrice) VALUES (?, ?, ?, ?)`, 
-        [userId, symbol, qty, prc], () => {
+      db.run(`INSERT INTO portfolio (userId, symbol, quantity, avgPrice) VALUES (?, ?, ?, ?)`,
+        [userId, symbol, qty, prc]);
+      // Логируем транзакцию
+      db.run(`INSERT INTO transactions (userId, type, symbol, quantity, price, total) VALUES (?, ?, ?, ?, ?, ?)`,
+        [userId, 'BUY', symbol, qty, prc, totalCost], () => {
           res.json({ message: 'Акция успешно добавлена в портфель' });
       });
     });
@@ -299,8 +352,17 @@ app.post('/api/invest/buy', (req, res) => {
 });
 
 app.get('/api/invest/portfolio/:userId', (req, res) => {
-  db.all(`SELECT symbol, SUM(quantity) as totalQty, AVG(avgPrice) as avgPrice FROM portfolio WHERE userId = ? GROUP BY symbol HAVING totalQty > 0`, 
+  db.all(`SELECT symbol, SUM(quantity) as totalQty, AVG(avgPrice) as avgPrice FROM portfolio WHERE userId = ? GROUP BY symbol HAVING totalQty > 0`,
     [req.params.userId], (err, rows) => {
+      res.json(rows || []);
+  });
+});
+
+// История транзакций
+app.get('/api/invest/transactions/:userId', (req, res) => {
+  db.all(`SELECT * FROM transactions WHERE userId = ? ORDER BY timestamp DESC LIMIT 50`,
+    [req.params.userId], (err, rows) => {
+      if (err) return res.status(500).json({ error: err.message });
       res.json(rows || []);
   });
 });
