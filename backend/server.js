@@ -9,25 +9,20 @@ const app = express();
 // Динамический CORS - разрешаем все origins в локальной сети
 app.use(cors({
   origin: function(origin, callback) {
-    // Разрешаем запросы без origin (например, Postman, curl)
     if (!origin) return callback(null, true);
 
-    // Разрешаем localhost на любых портах
     if (origin.includes('localhost') || origin.includes('127.0.0.1')) {
       return callback(null, true);
     }
 
-    // Разрешаем локальные IP адреса (192.168.x.x, 172.x.x.x, 10.x.x.x)
     if (origin.match(/^https?:\/\/(192\.168\.|172\.(1[6-9]|2[0-9]|3[01])\.|10\.)/)) {
       return callback(null, true);
     }
 
-    // Разрешаем ngrok
     if (origin.includes('ngrok')) {
       return callback(null, true);
     }
 
-    // Остальные запросы блокируем
     callback(new Error('Not allowed by CORS'));
   },
   credentials: true
@@ -41,11 +36,11 @@ app.use(express.json());
 const dbPath = path.resolve(__dirname, 'bank.db');
 const db = new sqlite3.Database(dbPath, (err) => {
   if (err) return console.error('❌ Ошибка открытия базы SQLite:', err.message);
-  console.log('🚀 Локальная база данных SQLite успешно создана и подключена! (Файл bank.db)');
+  console.log('🚀 Локальная база данных SQLite успешно подключена! (Файл bank.db)');
 });
 
 // ====================================================================
-// 2. ИНИЦИАЛИЗАЦИЯ ВСЕХ ТАБЛИЦ ЯДРА БАНКА
+// 2. ИНИЦИАЛИЗАЦИЯ ВСЕХ ТАБЛИЦ ЯДРА БАНКА (БЕЗОПАСНАЯ АВТО-МИГРАЦИЯ)
 // ====================================================================
 db.serialize(() => {
   db.run(`CREATE TABLE IF NOT EXISTS users (
@@ -81,13 +76,32 @@ db.serialize(() => {
   db.run(`CREATE TABLE IF NOT EXISTS transactions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     userId INTEGER,
+    category TEXT,
     type TEXT,
+    title TEXT,
+    description TEXT,
     symbol TEXT,
     quantity INTEGER,
     price REAL,
     total REAL,
+    currency TEXT DEFAULT 'с',
     timestamp TEXT DEFAULT CURRENT_TIMESTAMP
   )`);
+
+  // Исправленный метод проверки структуры через db.all()
+  db.all("PRAGMA table_info(transactions)", (err, columns) => {
+    if (!err && columns) {
+      const hasCategory = columns.some(col => col.name === 'category');
+      if (!hasCategory) {
+        console.log('⚙️ Обнаружена старая структура базы данных. Автоматически добавляю новые колонки...');
+        db.run(`ALTER TABLE transactions ADD COLUMN category TEXT`, () => {});
+        db.run(`ALTER TABLE transactions ADD COLUMN type TEXT`, () => {});
+        db.run(`ALTER TABLE transactions ADD COLUMN title TEXT`, () => {});
+        db.run(`ALTER TABLE transactions ADD COLUMN description TEXT`, () => {});
+        db.run(`ALTER TABLE transactions ADD COLUMN currency TEXT DEFAULT 'с'`, () => {});
+      }
+    }
+  });
 });
 
 function generateCardNumber() {
@@ -124,6 +138,10 @@ app.post('/api/auth/register', async (req, res) => {
       db.get(`SELECT * FROM users WHERE id = ?`, [this.lastID], (err, user) => {
         if (err) return res.status(500).json({ error: err.message });
         delete user.passwordHash;
+
+        // Фиксация создания аккаунта в глобальном логе истории
+        db.run(`INSERT INTO transactions (userId, category, type, title, description, total, currency) VALUES (?, 'banking', 'transfer_in', 'Открытие счета', 'Стартовый баланс BakaBank', 50000.00, 'с')`, [user.id]);
+
         res.status(201).json(user);
       });
     });
@@ -149,7 +167,7 @@ app.post('/api/auth/login', (req, res) => {
 });
 
 // ====================================================================
-// 4. ПРОФИЛЬ КЛИЕНТА (ФОНОВОЕ ОБНОВЛЕНИЕ БАЛАНСОВ)
+// 4. ПРОФИЛЬ КЛИЕНТА
 // ====================================================================
 app.get('/api/user/profile/:id', (req, res) => {
   db.get(`SELECT * FROM users WHERE id = ?`, [req.params.id], (err, user) => {
@@ -177,30 +195,38 @@ app.put('/api/user/update-phone', (req, res) => {
 });
 
 // ====================================================================
-// 5. РАСЧЕТНО-КАССОВЫЕ ОПЕРАЦИИ (ТРАНЗАКЦИОННЫЙ ХАБ)
+// 5. РАСЧЕТНО-КАССОВЫЕ ОПЕРАЦИИ (БАНКОВСКИЙ ТРАНЗАКЦИОННЫЙ ЛОГ)
 // ====================================================================
 app.post('/api/bank/transfer-phone', (req, res) => {
   const { senderId, targetPhone, amount } = req.body;
   const amt = parseFloat(amount);
   if (!amt || amt <= 0) return res.status(400).json({ error: 'Укажите корректную сумму' });
 
-  db.get(`SELECT id FROM users WHERE phoneNumber = ?`, [targetPhone.trim()], (err, recipientRow) => {
+  db.get(`SELECT id, fullName FROM users WHERE phoneNumber = ?`, [targetPhone.trim()], (err, recipientRow) => {
     if (err) return res.status(500).json({ error: err.message });
     if (!recipientRow) return res.status(404).json({ error: 'Получатель с таким номером телефона не найден' });
     if (senderId === recipientRow.id) return res.status(400).json({ error: 'Нельзя переводить самому себе' });
 
-    db.get(`SELECT cardBalance FROM users WHERE id = ?`, [senderId], (err, senderRow) => {
+    db.get(`SELECT cardBalance, fullName FROM users WHERE id = ?`, [senderId], (err, senderRow) => {
       if (senderRow.cardBalance < amt) return res.status(400).json({ error: 'Недостаточно средств на карте' });
 
       db.serialize(() => {
         db.run(`UPDATE users SET cardBalance = cardBalance - ? WHERE id = ?`, [amt, senderId]);
-        db.run(`UPDATE users SET cardBalance = cardBalance + ? WHERE id = ?`, [amt, recipientRow.id], (err) => {
-          if (err) return res.status(500).json({ error: 'Ошибка транзакции' });
-          db.get(`SELECT * FROM users WHERE id = ?`, [senderId], (err, updatedUser) => {
-            delete updatedUser.passwordHash;
-            res.json({ message: `Успешно переведено ${amt} сомов`, user: updatedUser });
+        db.run(`UPDATE users SET cardBalance = cardBalance + ? WHERE id = ?`, [amt, recipientRow.id]);
+        
+        // Пишем лог списания средств
+        db.run(`INSERT INTO transactions (userId, category, type, title, description, total) VALUES (?, 'banking', 'transfer_out', 'Перевод клиенту', ?, ?)`,
+          [senderId, `Получатель: ${recipientRow.fullName}`, -amt]);
+          
+        // Пишем лог зачисления средств
+        db.run(`INSERT INTO transactions (userId, category, type, title, description, total) VALUES (?, 'banking', 'transfer_in', 'Входящий перевод', ?, ?)`,
+          [recipientRow.id, `Отправитель: ${senderRow.fullName}`, amt], (err) => {
+            if (err) return res.status(500).json({ error: 'Ошибка транзакции' });
+            db.get(`SELECT * FROM users WHERE id = ?`, [senderId], (err, updatedUser) => {
+              delete updatedUser.passwordHash;
+              res.json({ message: `Успешно переведено ${amt} сомов`, user: updatedUser });
+            });
           });
-        });
       });
     });
   });
@@ -215,7 +241,11 @@ app.post('/api/bank/fund-invest', (req, res) => {
     if (row.cardBalance < amt) return res.status(400).json({ error: 'Недостаточно средств на дебетовой карте' });
 
     db.serialize(() => {
-      db.run(`UPDATE users SET cardBalance = cardBalance - ?, investBalance = investBalance + ? WHERE id = ?`, [amt, amt, userId], (err) => {
+      db.run(`UPDATE users SET cardBalance = cardBalance - ?, investBalance = investBalance + ? WHERE id = ?`, [amt, amt, userId]);
+      
+      // Логируем перевод на брокерский счет
+      db.run(`INSERT INTO transactions (userId, category, type, title, description, total) VALUES (?, 'banking', 'payment_service', 'Пополнение M-Invest', 'Перевод на брокерский счет', ?)`, [userId, -amt]);
+      db.run(`INSERT INTO transactions (userId, category, type, title, description, total) VALUES (?, 'invest', 'broker_deposit', 'Пополнение счета', 'Зачисление с дебетовой карты', ?)` , [userId, amt], (err) => {
         if (err) return res.status(500).json({ error: 'Ошибка перевода' });
         db.get(`SELECT * FROM users WHERE id = ?`, [userId], (err, updatedUser) => {
           delete updatedUser.passwordHash;
@@ -226,7 +256,6 @@ app.post('/api/bank/fund-invest', (req, res) => {
   });
 });
 
-// QR-ПЕРЕВОДЫ
 app.post('/api/bank/transfer-qr', (req, res) => {
   const { senderId, recipientId, amount } = req.body;
   const amt = parseFloat(amount);
@@ -239,18 +268,22 @@ app.post('/api/bank/transfer-qr', (req, res) => {
     return res.status(400).json({ error: 'Нельзя переводить самому себе' });
   }
 
-  db.get(`SELECT cardBalance FROM users WHERE id = ?`, [senderId], (err, senderRow) => {
+  db.get(`SELECT cardBalance, fullName FROM users WHERE id = ?`, [senderId], (err, senderRow) => {
     if (err) return res.status(500).json({ error: err.message });
     if (!senderRow) return res.status(404).json({ error: 'Отправитель не найден' });
     if (senderRow.cardBalance < amt) return res.status(400).json({ error: 'Недостаточно средств на карте' });
 
-    db.get(`SELECT id FROM users WHERE id = ?`, [recipientId], (err, recipientRow) => {
+    db.get(`SELECT id, fullName FROM users WHERE id = ?`, [recipientId], (err, recipientRow) => {
       if (err) return res.status(500).json({ error: err.message });
       if (!recipientRow) return res.status(404).json({ error: 'Получатель не найден' });
 
       db.serialize(() => {
         db.run(`UPDATE users SET cardBalance = cardBalance - ? WHERE id = ?`, [amt, senderId]);
-        db.run(`UPDATE users SET cardBalance = cardBalance + ? WHERE id = ?`, [amt, recipientId], (err) => {
+        db.run(`UPDATE users SET cardBalance = cardBalance + ? WHERE id = ?`, [amt, recipientId]);
+        
+        // Логируем QR-платежи в выписку карт
+        db.run(`INSERT INTO transactions (userId, category, type, title, description, total) VALUES (?, 'banking', 'transfer_out', 'Оплата по QR', ?, ?)`, [senderId, `Получатель: ${recipientRow.fullName}`, -amt]);
+        db.run(`INSERT INTO transactions (userId, category, type, title, description, total) VALUES (?, 'banking', 'transfer_in', 'Входящий QR-платеж', ?, ?)`, [recipientId, `Отправитель: ${senderRow.fullName}`, amt], (err) => {
           if (err) return res.status(500).json({ error: 'Ошибка транзакции' });
           db.get(`SELECT * FROM users WHERE id = ?`, [senderId], (err, updatedUser) => {
             delete updatedUser.passwordHash;
@@ -263,12 +296,11 @@ app.post('/api/bank/transfer-qr', (req, res) => {
 });
 
 // ====================================================================
-// 6. КРЕДИТНЫЙ КОНВЕЙЕР (ИСПРАВЛЕНЫ ОШИБКИ ПОДГРУЗКИ)
+// 6. КРЕДИТНЫЙ КОНВЕЙЕР
 // ====================================================================
 app.get('/api/credit/active/:userId', (req, res) => {
   db.get(`SELECT * FROM credits WHERE userId = ? AND remainingAmount > 0`, [req.params.userId], (err, row) => {
     if (err) return res.status(500).json({ error: err.message });
-    // КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Отдаем 200 ОК и null вместо 404, чтобы консоль не спамила ошибками
     if (!row) return res.json(null);
     res.json(row);
   });
@@ -296,7 +328,10 @@ app.post('/api/credit/take', (req, res) => {
       db.run(`INSERT INTO credits (userId, amount, remainingAmount, monthlyPayment, termMonths, nextPaymentDate) 
               VALUES (?, ?, ?, ?, ?, ?)`, [userId, amt, totalToPay, monthlyPayment, months, nextDateStr]);
       
-      db.run(`UPDATE users SET cardBalance = cardBalance + ? WHERE id = ?`, [amt, userId], (err) => {
+      db.run(`UPDATE users SET cardBalance = cardBalance + ? WHERE id = ?`, [amt, userId]);
+
+      // Запись о кредите в выписку
+      db.run(`INSERT INTO transactions (userId, category, type, title, description, total) VALUES (?, 'banking', 'transfer_in', 'Зачисление кредита', 'Одобрено автоматическим скорингом', ?)`, [userId, amt], (err) => {
         if (err) return res.status(500).json({ error: 'Ошибка зачисления средств' });
         db.get(`SELECT * FROM users WHERE id = ?`, [userId], (err, updatedUser) => {
           delete updatedUser.passwordHash;
@@ -322,18 +357,20 @@ app.post('/api/credit/pay', (req, res) => {
 
       db.serialize(() => {
         db.run(`UPDATE users SET cardBalance = cardBalance - ? WHERE id = ?`, [realSpisanie, userId]);
-        db.run(`UPDATE credits SET remainingAmount = remainingAmount - ? WHERE id = ?`, [realSpisanie, credit.id], (err) => {
-          if ((credit.remainingAmount - realSpisanie) <= 0) {
-             db.run(`DELETE FROM credits WHERE id = ?`, [credit.id]);
-          } else {
-             const nextDate = new Date(credit.nextPaymentDate);
-             nextDate.setMonth(nextDate.getMonth() + 1);
-             db.run(`UPDATE credits SET nextPaymentDate = ? WHERE id = ?`, [nextDate.toISOString().split('T')[0], credit.id]);
-          }
-          db.get(`SELECT * FROM users WHERE id = ?`, [userId], (err, updatedUser) => {
-            delete updatedUser.passwordHash;
-            res.json({ message: realSpisanie >= credit.remainingAmount ? 'Кредит успешно закрыт! Вы свободны от долгов.' : 'Платеж успешно зачислен', user: updatedUser });
-          });
+        db.run(`UPDATE credits SET remainingAmount = remainingAmount - ? WHERE id = ?`, [realSpisanie, credit.id]);
+        
+        db.run(`INSERT INTO transactions (userId, category, type, title, description, total) VALUES (?, 'banking', 'transfer_out', 'Погашение кредита', 'Плановый платеж', ?)` , [userId, -realSpisanie]);
+
+        if ((credit.remainingAmount - realSpisanie) <= 0) {
+           db.run(`DELETE FROM credits WHERE id = ?`, [credit.id]);
+        } else {
+           const nextDate = new Date(credit.nextPaymentDate);
+           nextDate.setMonth(nextDate.getMonth() + 1);
+           db.run(`UPDATE credits SET nextPaymentDate = ? WHERE id = ?`, [nextDate.toISOString().split('T')[0], credit.id]);
+        }
+        db.get(`SELECT * FROM users WHERE id = ?`, [userId], (err, updatedUser) => {
+          delete updatedUser.passwordHash;
+          res.json({ message: realSpisanie >= credit.remainingAmount ? 'Кредит успешно закрыт! Вы свободны от долгов.' : 'Платеж успешно зачислен', user: updatedUser });
         });
       });
     });
@@ -341,7 +378,7 @@ app.post('/api/credit/pay', (req, res) => {
 });
 
 // ====================================================================
-// 7. МОДУЛЬ ТОРГОВОГО БИРЖЕВОГО ТЕРМИНАЛА (M-INVEST)
+// 7. МОДУЛЬ ИНВЕСТИЦИОННОГО БИРЖЕВОГО ТЕРМИНАЛА (M-INVEST)
 // ====================================================================
 app.get('/api/invest/market', (req, res) => {
   const liveStocks = STOCKS.map(s => {
@@ -364,11 +401,12 @@ app.post('/api/invest/buy', (req, res) => {
 
     db.serialize(() => {
       db.run(`UPDATE users SET investBalance = investBalance - ? WHERE id = ?`, [totalCost, userId]);
-      db.run(`INSERT INTO portfolio (userId, symbol, quantity, avgPrice) VALUES (?, ?, ?, ?)`,
-        [userId, symbol, qty, prc]);
-      // Логируем транзакцию
-      db.run(`INSERT INTO transactions (userId, type, symbol, quantity, price, total) VALUES (?, ?, ?, ?, ?, ?)`,
-        [userId, 'BUY', symbol, qty, prc, totalCost], () => {
+      db.run(`INSERT INTO portfolio (userId, symbol, quantity, avgPrice) VALUES (?, ?, ?, ?)`, [userId, symbol, qty, prc]);
+      
+      // Запись покупки ценных бумаг (Улетает строго во 2-й таб "Инвестиции")
+      db.run(`INSERT INTO transactions (userId, category, type, title, description, symbol, quantity, price, total) VALUES (?, 'invest', 'stock_buy', ?, ?, ?, ?, ?, ?)` ,
+        [userId, `Покупка акций ${symbol}`, `${qty} шт. • По рыночной цене`, symbol, qty, prc, -totalCost], (err) => {
+          if (err) console.error("Ошибка сохранения лога покупки акций:", err.message);
           res.json({ message: 'Акция успешно добавлена в портфель' });
       });
     });
@@ -382,9 +420,8 @@ app.get('/api/invest/portfolio/:userId', (req, res) => {
   });
 });
 
-// История транзакций
 app.get('/api/invest/transactions/:userId', (req, res) => {
-  db.all(`SELECT * FROM transactions WHERE userId = ? ORDER BY timestamp DESC LIMIT 50`,
+  db.all(`SELECT * FROM transactions WHERE userId = ? AND category = 'invest' ORDER BY timestamp DESC LIMIT 50`,
     [req.params.userId], (err, rows) => {
       if (err) return res.status(500).json({ error: err.message });
       res.json(rows || []);
@@ -411,6 +448,38 @@ app.post('/api/ai/chat', (req, res) => {
     reply = `Привет, ква! Финансовая Жаба BakaBank на связи. Рад помочь тебе с кредитами, инвестициями или переводами!`;
   }
   setTimeout(() => res.json({ reply }), 500);
+});
+
+// ====================================================================
+// 9. ГЛОБАЛЬНЫЙ РОУТ ИСТОРИИ ОПЕРАЦИЙ (БЕЗОПАСНАЯ СБОРКА ВЫПИСКИ)
+// ====================================================================
+app.get('/api/history/:userId', (req, res) => {
+  const { userId } = req.params;
+
+  // Использование COALESCE страхует от пустых полей в базе данных и предотвращает ошибку 500
+  const sql = `
+    SELECT 
+      id, 
+      userId, 
+      COALESCE(category, 'invest') AS category, 
+      COALESCE(type, 'stock_buy') AS type, 
+      COALESCE(title, 'Операция BakaBank') AS title, 
+      COALESCE(description, 'Сделка внутри системы') AS description, 
+      total AS amount, 
+      currency, 
+      timestamp AS date 
+    FROM transactions 
+    WHERE userId = ? 
+    ORDER BY timestamp DESC
+  `;
+  
+  db.all(sql, [userId], (err, rows) => {
+    if (err) {
+      console.error('Ошибка чтения таблицы транзакций:', err.message);
+      return res.status(500).json({ error: 'Ошибка сервера при получении истории' });
+    }
+    res.json(rows || []);
+  });
 });
 
 const PORT = 3001;
