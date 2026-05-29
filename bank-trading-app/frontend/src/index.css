@@ -52,18 +52,33 @@
 
 body {
   margin: 0;
+  /* Темный нейтральный фон для экрана ноутбука */
+  background-color: #050505; 
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  /* Запрещаем скролл самому браузеру, скроллиться будет только внутри телефона */
+  overflow: hidden; 
 }
 
 #root {
-  width: 1126px;
-  max-width: 100%;
+  /* Жестко задаем размеры мобильного телефона */
+  width: 100%;
+  max-width: 430px;
+  height: 100vh;
   margin: 0 auto;
   text-align: center;
-  border-inline: 1px solid var(--border);
-  min-height: 100svh;
+  /* Фон самого приложения берем из вашей дизайн-системы */
+  background: var(--color-bg-primary); 
   display: flex;
   flex-direction: column;
   box-sizing: border-box;
+
+  /* Важно для скролла внутри "телефона" */
+  position: relative;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 h1,
@@ -108,4 +123,24 @@ code {
   line-height: 135%;
   padding: 4px 8px;
   background: var(--code-bg);
+}
+
+
+@media (min-width: 768px) {
+  #root {
+    height: 90vh; /* Отступы сверху и снизу */
+    max-height: 900px;
+    border-radius: 40px; /* Скругленные края телефона */
+    border: 8px solid #1C1C1E; /* Корпус телефона (цвет из вашей палитры) */
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7); /* Тень от телефона */
+  }
+  
+  /* Красивый скроллбар для десктопа внутри телефона */
+  #root::-webkit-scrollbar {
+    width: 4px;
+  }
+  #root::-webkit-scrollbar-thumb {
+    background: var(--color-surface-elevated);
+    border-radius: 10px;
+  }
 }

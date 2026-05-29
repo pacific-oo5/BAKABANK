@@ -172,16 +172,9 @@ export default function App() {
     <div className="app-container" style={{ position: 'relative', minHeight: '100vh' }}>
       <Toaster position="top-center" />
 
-      {/* СТАТУС-ХЕДЕР */}
+      {/* ХЕДЕР С ЛОГО */}
       <header className="app-header">
-        <div className="header-left">
-          <div className="user-avatar"><User size={20} strokeWidth={2.5} /></div>
-          <div className="user-info">
-            <span className="greeting-text">Салам,</span>
-            <h3 className="user-name">{user.fullName || 'Клиент BakaBank'}</h3>
-          </div>
-        </div>
-        <motion.div whileTap={{ scale: 0.9 }} className="notification-badge"><Bell size={20} strokeWidth={2.5} /></motion.div>
+        <h1 className="app-logo">BakaBank</h1>
       </header>
 
       {/* КОНТЕНТ ВКЛАДОК */}
@@ -197,57 +190,21 @@ export default function App() {
           </motion.div>
         </AnimatePresence>
       </main>
-
+      
       {/* ПЛАВАЮЩАЯ ЖАБА (НАД НАВБАРОМ) */}
-      <div
-        onClick={() => setIsChatOpen(!isChatOpen)}
-        style={{
-          position: 'fixed',
-          right: '24px',
-          bottom: '100px',
-          width: '64px',
-          height: '64px',
-          borderRadius: '50%',
-          background: isChatOpen ? '#ff4d4f' : '#11bb77',
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          cursor: 'pointer',
-          zIndex: 99999,
-          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.5), 0 0 20px rgba(17, 187, 119, 0.4)',
-          border: '2px solid rgba(255,255,255,0.1)',
-          transition: 'all 0.2s ease-in-out'
-        }}
-      >
-        {isChatOpen ? <X size={26} color="#000" strokeWidth={2.5} /> : <span style={{ fontSize: '32px' }}>🐸</span>}
+      <div className="zhaba-wrapper">
+        <div
+          onClick={() => setIsChatOpen(!isChatOpen)}
+          className={`zhaba-btn ${isChatOpen ? 'open' : 'closed'}`}
+        >
+          {isChatOpen ? <X size={26} color="#000" strokeWidth={2.5} /> : <span style={{ fontSize: '32px' }}>🐸</span>}
+        </div>
       </div>
 
       {/* МОДАЛКА ИИ-ЧАТА ЖАБЫ */}
       {isChatOpen && (
-        <div style={{
-          position: 'fixed',
-          top: 0, left: 0, right: 0, bottom: 0,
-          background: 'rgba(0,0,0,0.8)',
-          backdropFilter: 'blur(5px)',
-          zIndex: 99998,
-          display: 'flex',
-          alignItems: 'flex-end',
-          justifyContent: 'center',
-          padding: '20px'
-        }}>
-          <div style={{
-            background: '#14161a',
-            width: '100%',
-            maxWidth: '400px',
-            height: '460px',
-            borderRadius: '28px',
-            border: '1px solid #202329',
-            display: 'flex',
-            flexDirection: 'column',
-            marginBottom: '84px',
-            overflow: 'hidden',
-            boxShadow: '0 20px 50px rgba(0,0,0,0.9)'
-          }}>
+        <div className="zhaba-modal-overlay">
+          <div className="zhaba-modal-content">
             <div style={{ padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#1c1f26', borderBottom: '1px solid #202329' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <span style={{ fontSize: '24px' }}>🐸</span>
