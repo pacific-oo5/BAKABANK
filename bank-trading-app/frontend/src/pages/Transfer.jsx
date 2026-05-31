@@ -2,49 +2,48 @@ import React, { useState } from 'react';
 import { useTradingStore } from '../store/useTradingStore';
 import { API_BASE_URL } from '../config';
 import { Phone, TrendingUp, Home, Wifi, Gamepad2, Search, ChevronRight, ArrowLeft, User, CreditCard, QrCode } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import toast, { Toaster } from 'react-hot-toast';
 import QRPay from './QRPay';
 import '../styles/transfers.css';
 
+// Пружины Эмила Ковальски
+const springConfig = { type: "spring", stiffness: 400, damping: 30 };
+
+const containerVariants = {
+  hidden: { opacity: 0 },
+  show: { opacity: 1, transition: { staggerChildren: 0.05 } },
+  exit: { opacity: 0, filter: "blur(4px)", transition: { duration: 0.1 } }
+};
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 12, filter: "blur(4px)" },
+  show: { opacity: 1, y: 0, filter: "blur(0px)", transition: springConfig }
+};
+
 export default function Transfers() {
   const { user, setUser } = useTradingStore();
   
-  // Управление экранами: 'menu' (главная витрина), 'phone' (перевод по тел), 'invest' (биржа), 'mock' (заглушка для ЖКХ/коммуналки), 'qr' (QR-переводы)
   const [activeSubScreen, setActiveSubScreen] = useState('menu');
   const [mockTitle, setMockTitle] = useState('');
-
-  // Состояния для формы перевода по телефону
   const [targetPhone, setTargetPhone] = useState('');
   const [phoneAmount, setPhoneAmount] = useState('');
-  
-  // Состояния для формы пополнения инвест-счета
   const [investAmount, setInvestAmount] = useState('');
-
-  // Состояния для кастомных платежей (ЖКХ, интернет и т.д.)
   const [mockAccount, setMockAccount] = useState('');
   const [mockAmount, setMockAmount] = useState('');
-
-  // Статусы
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // Сброс сообщений при смене экрана
   const changeScreen = (screen, title = '') => {
-    setError('');
-    success ? null : setSuccess('');
     setActiveSubScreen(screen);
     setMockTitle(title);
   };
 
-  // ЛОГИКА 1: Перевод по номеру телефона
   const handlePhoneTransfer = async (e) => {
     e.preventDefault();
-    setError(''); setSuccess(''); setLoading(true);
+    setLoading(true);
 
     if (parseFloat(phoneAmount) > user.cardBalance) {
-      toast.error('Недостаточно средств на карте');
+      toast.error('ERR_INSUFFICIENT_FUNDS');
       setLoading(false);
       return;
     }
@@ -57,29 +56,28 @@ export default function Transfers() {
       });
       const data = await response.json();
       if (!response.ok) {
-        toast.error(data.error || 'Ошибка перевода');
+        toast.error(data.error || 'ERR_TRANSACTION_FAILED');
         setLoading(false);
         return;
       }
 
       setUser(data.user);
-      toast.success(`Перевод выполнен! Отправлено ${phoneAmount} с. клиенту ${targetPhone}`);
+      toast.success(`TX_SUCCESS: ${phoneAmount} KGS -> ${targetPhone}`);
       setTargetPhone(''); setPhoneAmount('');
       setActiveSubScreen('menu');
     } catch (err) {
-      toast.error('Ошибка связи с сервером.');
+      toast.error('ERR_CONNECTION_REFUSED');
     } finally {
       setLoading(false);
     }
   };
 
-  // ЛОГИКА 2: Пополнение биржевого счета
   const handleInvestFund = async (e) => {
     e.preventDefault();
-    setError(''); setSuccess(''); setLoading(true);
+    setLoading(true);
 
     if (parseFloat(investAmount) > user.cardBalance) {
-      toast.error('Недостаточно средств на карте');
+      toast.error('ERR_INSUFFICIENT_FUNDS');
       setLoading(false);
       return;
     }
@@ -92,397 +90,203 @@ export default function Transfers() {
       });
       const data = await response.json();
       if (!response.ok) {
-        toast.error(data.error || 'Ошибка пополнения');
+        toast.error(data.error || 'ERR_FUNDING_FAILED');
         setLoading(false);
         return;
       }
 
       setUser(data.user);
-      toast.success(`Инвест-счет успешно пополнен на +${investAmount} сомов!`);
+      toast.success(`FUND_SUCCESS: +${investAmount} KGS -> M-Invest`);
       setInvestAmount('');
       setActiveSubScreen('menu');
     } catch (err) {
-      toast.error('Ошибка связи с сервером.');
+      toast.error('ERR_CONNECTION_REFUSED');
     } finally {
       setLoading(false);
     }
   };
 
-  // ЛОГИКА 3: Эмуляция оплаты коммуналки / интернета
   const handleMockPay = (e) => {
     e.preventDefault();
     const amt = parseFloat(mockAmount);
     if (amt > user.cardBalance) {
-      toast.error('Недостаточно денег на карте');
+      toast.error('ERR_INSUFFICIENT_FUNDS');
       return;
     }
 
-    // Списываем только локально для демонстрации коммуналки
     setUser({ ...user, cardBalance: user.cardBalance - amt });
-    toast.success(`Оплата по услуге "${mockTitle}" на сумму ${amt} с. успешно проведена!`);
+    toast.success(`PAY_SUCCESS: ${mockTitle} | ${amt} KGS`);
     setMockAccount(''); setMockAmount('');
     setActiveSubScreen('menu');
   };
 
+  // Компонент утилитарной кнопки возврата
+  const BackButton = () => (
+    <motion.div whileTap={{ scale: 0.95 }} className="back-link" onClick={() => changeScreen('menu')}>
+      <ArrowLeft size={16} />
+      <span>[ ESC ] ВОЗВРАТ</span>
+    </motion.div>
+  );
+
   return (
     <div className="transfers-container">
-      <Toaster position="top-center" toastOptions={{
-        style: { background: 'var(--color-surface)', color: 'var(--color-text-primary)', border: '1px solid var(--color-border)' },
-        success: { iconTheme: { primary: 'var(--color-accent-success)', secondary: '#fff' } },
-        error: { iconTheme: { primary: 'var(--color-accent-error)', secondary: '#fff' } }
-      }} />
+      <Toaster position="top-center" toastOptions={{ style: { background: '#1c1c1e', color: '#fff', border: '1px solid #333' } }} />
 
-      {/* ДИНАМИЧЕСКИЙ ВЫВОД ОШИБОК И УСПЕХОВ */}
-      {error && <div className="alert-error">⚠️ {error}</div>}
-      {success && <div className="alert-success">✅ {success}</div>}
-
-      {/* ==================================================================== */}
-      {/* СЦЕНАРИЙ 1: ГЛАВНОЕ МЕНЮ ПЛАТЕЖЕЙ И КАТЕГОРИЙ */}
-      {/* ==================================================================== */}
-      {activeSubScreen === 'menu' && (
-        <>
-          <h2 className="transfers-title">Платежи и переводы</h2>
-          <p className="transfers-subtitle">Оплата услуг, штрафов и мгновенные переводы</p>
-
-          {/* Строка поиска (как в MBank) */}
-          <div className="transfers-search-wrapper">
-            <Search size={18} className="transfers-search-icon" />
-            <input type="text" placeholder="Название услуги, ИНН или кошелек..." className="transfers-search" />
-          </div>
-
-          {/* БЛОК: ЧАСТЫЕ ПЛАТЕЖИ */}
-          <h4 className="transfers-section-title">Частые платежи</h4>
-          <div className="favorites-scroll">
-            <motion.div
-              whileTap={{ scale: 0.95 }}
-              className="favorite-item"
-              onClick={() => { changeScreen('phone'); setTargetPhone('+996777111222'); }}
-            >
-              <div className="favorite-icon-wrapper" style={{ background: 'var(--color-surface)' }}>
-                <User size={20} color="var(--color-text-primary)" />
-              </div>
-              <span className="favorite-label">Мама</span>
+      <AnimatePresence mode="wait">
+        {/* === СЦЕНАРИЙ 1: ГЛАВНОЕ МЕНЮ === */}
+        {activeSubScreen === 'menu' && (
+          <motion.div key="menu" variants={containerVariants} initial="hidden" animate="show" exit="exit" className="subscreen-wrapper">
+            <motion.div variants={itemVariants}>
+              <h2 className="transfers-title">Транзакции</h2>
+              <p className="transfers-subtitle">Операционный хаб переводов и платежей</p>
             </motion.div>
 
-            <motion.div
-              whileTap={{ scale: 0.95 }}
-              className="favorite-item"
-              onClick={() => changeScreen('invest')}
-            >
-              <div className="favorite-icon-wrapper" style={{ background: 'var(--color-accent-success)', color: '#000' }}>
-                <TrendingUp size={20} />
-              </div>
-              <span className="favorite-label">Жаба-Инвест</span>
+            {/* Терминальный поиск */}
+            <motion.div variants={itemVariants} className="terminal-search-wrapper">
+              <span className="terminal-prefix">&gt;</span>
+              <input type="text" placeholder="Поиск операции / ИНН..." className="terminal-search-input" />
+              <Search size={16} className="search-icon-muted" />
             </motion.div>
 
-            <motion.div
-              whileTap={{ scale: 0.95 }}
-              className="favorite-item"
-              onClick={() => changeScreen('qr')}
-            >
-              <div className="favorite-icon-wrapper" style={{ background: 'var(--color-accent-warning)', color: '#000' }}>
-                <QrCode size={20} />
+            {/* ЧАСТЫЕ ПЛАТЕЖИ (Брутальный скролл) */}
+            <motion.div variants={itemVariants}>
+              <h4 className="section-label">Избранные узлы</h4>
+              <div className="favorites-grid-scroll">
+                {[
+                  { icon: User, label: 'Мама', action: () => { changeScreen('phone'); setTargetPhone('+996777111222'); } },
+                  { icon: TrendingUp, label: 'Инвест', action: () => changeScreen('invest'), accent: true },
+                  { icon: QrCode, label: 'QR-Pay', action: () => changeScreen('qr') },
+                  { icon: Phone, label: 'Мой номер', action: () => changeScreen('mock', 'Megacom (О!)') },
+                  { icon: Wifi, label: 'Акнет', action: () => changeScreen('mock', 'Акнет Интернет') }
+                ].map((fav, idx) => (
+                  <motion.div key={idx} whileTap={{ scale: 0.92 }} className="fav-node" onClick={fav.action}>
+                    <div className={`fav-icon-box ${fav.accent ? 'accented' : ''}`}>
+                      <fav.icon size={20} strokeWidth={fav.accent ? 2.5 : 2} />
+                    </div>
+                    <span className="fav-label">{fav.label}</span>
+                  </motion.div>
+                ))}
               </div>
-              <span className="favorite-label">QR-перевод</span>
             </motion.div>
 
-            <motion.div
-              whileTap={{ scale: 0.95 }}
-              className="favorite-item"
-              onClick={() => changeScreen('mock', 'Megacom (О!)')}
-            >
-              <div className="favorite-icon-wrapper" style={{ background: 'var(--color-surface)' }}>
-                <Phone size={20} color="var(--color-text-primary)" />
+            {/* КАТЕГОРИИ ПЛАТЕЖЕЙ */}
+            <motion.div variants={itemVariants}>
+              <h4 className="section-label">Директория услуг</h4>
+              <div className="categories-list">
+                {[
+                  { icon: QrCode, title: 'QR-Сканер', desc: 'Оплата и переводы по штрихкоду', action: () => changeScreen('qr') },
+                  { icon: Phone, title: 'Перевод по телефону', desc: 'Внутри сети BakaBank (0% комиссии)', action: () => changeScreen('phone') },
+                  { icon: TrendingUp, title: 'M-Invest', desc: 'Фондирование брокерского счета', action: () => changeScreen('invest') },
+                  { icon: Home, title: 'Коммунальные сети', desc: 'ЖКХ, электричество, вода', action: () => changeScreen('mock', 'Коммунальные услуги') },
+                  { icon: Wifi, title: 'Провайдеры связи', desc: 'Интернет и кабельное ТВ', action: () => changeScreen('mock', 'Интернет Провайдеры') },
+                  { icon: Gamepad2, title: 'Цифровые товары', desc: 'Игровые сервисы и подписки', action: () => changeScreen('mock', 'Игры и развлечения') }
+                ].map((cat, idx) => (
+                  <motion.div key={idx} whileTap={{ scale: 0.98 }} className="cat-row" onClick={cat.action}>
+                    <div className="cat-icon-container"><cat.icon size={18} /></div>
+                    <div className="cat-text-group">
+                      <span className="cat-title">{cat.title}</span>
+                      <span className="cat-desc">{cat.desc}</span>
+                    </div>
+                    <ChevronRight size={18} className="cat-arrow" />
+                  </motion.div>
+                ))}
               </div>
-              <span className="favorite-label">Мой номер</span>
             </motion.div>
-
-            <motion.div
-              whileTap={{ scale: 0.95 }}
-              className="favorite-item"
-              onClick={() => changeScreen('mock', 'Акнет Интернет')}
-            >
-              <div className="favorite-icon-wrapper" style={{ background: 'var(--color-surface)' }}>
-                <Wifi size={20} color="var(--color-text-primary)" />
-              </div>
-              <span className="favorite-label">Акнет Дом</span>
-            </motion.div>
-          </div>
-
-          {/* КАТЕГОРИИ ПЛАТЕЖЕЙ */}
-          <h4 className="transfers-section-title">Категории услуг</h4>
-          <div className="categories-list">
-
-            {/* QR-переводы */}
-            <motion.div
-              whileTap={{ scale: 0.98 }}
-              className="category-row"
-              onClick={() => changeScreen('qr')}
-            >
-              <span className="category-icon" style={{ background: 'rgba(255,204,0,0.1)', color: 'var(--color-accent-warning)' }}>
-                <QrCode size={20} />
-              </span>
-              <div className="category-text-container">
-                <span className="category-name">QR-переводы</span>
-                <span className="category-desc">Мгновенные переводы по QR-коду без ввода номера</span>
-              </div>
-              <ChevronRight size={20} className="category-arrow" />
-            </motion.div>
-
-            {/* Рабочий перевод по телефону */}
-            <motion.div
-              whileTap={{ scale: 0.98 }}
-              className="category-row"
-              onClick={() => changeScreen('phone')}
-            >
-              <span className="category-icon">
-                <Phone size={20} />
-              </span>
-              <div className="category-text-container">
-                <span className="category-name">Перевод по номеру телефона</span>
-                <span className="category-desc">Клиентам BakaBank без комиссии</span>
-              </div>
-              <ChevronRight size={20} className="category-arrow" />
-            </motion.div>
-
-            {/* Рабочее пополнение биржи */}
-            <motion.div
-              whileTap={{ scale: 0.98 }}
-              className="category-row"
-              onClick={() => changeScreen('invest')}
-            >
-              <span className="category-icon" style={{ background: 'rgba(48, 209, 88, 0.1)', color: 'var(--color-accent-success)' }}>
-                <TrendingUp size={20} />
-              </span>
-              <div className="category-text-container">
-                <span className="category-name">Пополнение инвест-счета (M-Invest)</span>
-                <span className="category-desc">Мгновенный перевод на брокерский баланс</span>
-              </div>
-              <ChevronRight size={20} className="category-arrow" />
-            </motion.div>
-
-            {/* Коммуналка */}
-            <motion.div
-              whileTap={{ scale: 0.98 }}
-              className="category-row"
-              onClick={() => changeScreen('mock', 'Коммунальные услуги (Бишкектеплосеть)')}
-            >
-              <span className="category-icon">
-                <Home size={20} />
-              </span>
-              <div className="category-text-container">
-                <span className="category-name">Коммунальные услуги</span>
-                <span className="category-desc">Газ, свет, отопление, вывоз мусора</span>
-              </div>
-              <ChevronRight size={20} className="category-arrow" />
-            </motion.div>
-
-            {/* Интернет */}
-            <motion.div
-              whileTap={{ scale: 0.98 }}
-              className="category-row"
-              onClick={() => changeScreen('mock', 'Интернет (Jet / Акнет / Мега-Лайн)')}
-            >
-              <span className="category-icon">
-                <Wifi size={20} />
-              </span>
-              <div className="category-text-container">
-                <span className="category-name">Интернет и ТВ</span>
-                <span className="category-desc">Оплата провайдеров по лицевому счету</span>
-              </div>
-              <ChevronRight size={20} className="category-arrow" />
-            </motion.div>
-
-            {/* Игры */}
-            <motion.div
-              whileTap={{ scale: 0.98 }}
-              className="category-row"
-              onClick={() => changeScreen('mock', 'Steam СНГ пополнение')}
-            >
-              <span className="category-icon">
-                <Gamepad2 size={20} />
-              </span>
-              <div className="category-text-container">
-                <span className="category-name">Игры и развлечения</span>
-                <span className="category-desc">Steam, PlayStation Store, Minecraft, Mobile Legends</span>
-              </div>
-              <ChevronRight size={20} className="category-arrow" />
-            </motion.div>
-
-          </div>
-        </>
-      )}
-
-      {/* ==================================================================== */}
-      {/* СЦЕНАРИЙ 2: ФОРМА ПЕРЕВОДА ПО ТЕЛЕФОНУ */}
-      {/* ==================================================================== */}
-      {activeSubScreen === 'phone' && (
-        <div>
-          <motion.div
-            whileTap={{ scale: 0.98 }}
-            className="back-header"
-            onClick={() => changeScreen('menu')}
-          >
-            <ArrowLeft size={18} />
-            Назад в платежи
           </motion.div>
-          <h3 className="form-title">Перевод по номеру телефона</h3>
-          <form onSubmit={handlePhoneTransfer} className="form-card">
-            <div className="input-group">
-              <label className="input-label">Номер телефона получателя</label>
-              <input
-                type="tel"
-                inputMode="numeric"
-                placeholder="+996997555114"
-                value={targetPhone}
-                onChange={e => setTargetPhone(e.target.value)}
-                className="form-input"
-                required
-              />
-            </div>
-            <div className="input-group">
-              <label className="input-label">Сумма перевода (сомов)</label>
-              <input
-                type="text"
-                inputMode="decimal"
-                placeholder="0.00"
-                value={phoneAmount}
-                onChange={e => setPhoneAmount(e.target.value)}
-                className="form-input"
-                required
-              />
-              <span className="balance-badge">Доступно: {user.cardBalance?.toLocaleString('ru-RU')} с</span>
-            </div>
-            <motion.button
-              whileTap={{ scale: 0.98 }}
-              type="submit"
-              disabled={loading}
-              className="form-button"
-            >
-              {loading ? 'Проведение транзакции...' : 'Подтвердить перевод'}
-            </motion.button>
-          </form>
-        </div>
-      )}
+        )}
 
-      {/* ==================================================================== */}
-      {/* СЦЕНАРИЙ 3: ФОРМА ПОПОЛНЕНИЯ БИРЖЕВОГО СЧЕТА */}
-      {/* ==================================================================== */}
-      {activeSubScreen === 'invest' && (
-        <div>
-          <motion.div
-            whileTap={{ scale: 0.98 }}
-            className="back-header"
-            onClick={() => changeScreen('menu')}
-          >
-            <ArrowLeft size={18} />
-            Назад в платежи
-          </motion.div>
-          <h3 className="form-title">Пополнение счета M-Invest</h3>
-          <p style={{ color: 'var(--color-text-tertiary)', fontSize: 'var(--font-size-sm)', marginTop: 'calc(-1 * var(--space-sm))', marginBottom: 'var(--space-lg)' }}>Перевод денег с основной дебетовой карты на ваш торговый брокерский баланс.</p>
-
-          <form onSubmit={handleInvestFund} className="form-card">
-            <div className="input-group">
-              <label className="input-label">Счет списания</label>
-              <div className="static-account">
-                <CreditCard size={18} />
-                ЭЛКАРТ •••• {user.cardNumber?.slice(-4) || '0000'}
+        {/* === СЦЕНАРИЙ 2: ПЕРЕВОД ПО ТЕЛЕФОНУ === */}
+        {activeSubScreen === 'phone' && (
+          <motion.div key="phone" variants={containerVariants} initial="hidden" animate="show" exit="exit" className="subscreen-wrapper">
+            <BackButton />
+            <motion.h3 variants={itemVariants} className="form-heading">Перевод P2P</motion.h3>
+            <motion.form variants={itemVariants} onSubmit={handlePhoneTransfer} className="util-form">
+              <div className="form-group">
+                <label className="form-label">ИДЕНТИФИКАТОР (ТЕЛЕФОН)</label>
+                <div className="terminal-input-wrapper">
+                  <span className="terminal-prefix">TEL&gt;</span>
+                  <input type="tel" placeholder="+996 997 555 114" value={targetPhone} onChange={e => setTargetPhone(e.target.value)} className="terminal-input" required />
+                </div>
               </div>
-            </div>
-            <div className="input-group">
-              <label className="input-label">Сумма пополнения (сомов)</label>
-              <input
-                type="text"
-                inputMode="decimal"
-                placeholder="Сумма"
-                value={investAmount}
-                onChange={e => setInvestAmount(e.target.value)}
-                className="form-input"
-                required
-              />
-              <span className="balance-badge">Доступно на карте: {user.cardBalance?.toLocaleString('ru-RU')} с</span>
-            </div>
-            <motion.button
-              whileTap={{ scale: 0.98 }}
-              type="submit"
-              disabled={loading}
-              className="form-button"
-            >
-              {loading ? 'Перевод на брокерский счет...' : 'Пополнить инвест-баланс'}
-            </motion.button>
-          </form>
-        </div>
-      )}
-
-      {/* ==================================================================== */}
-      {/* СЦЕНАРИЙ 4: ОПЛАТА КОММУНАЛКИ / ИНТЕРНЕТА (MOCK СЕРВИСЫ) */}
-      {/* ==================================================================== */}
-      {activeSubScreen === 'mock' && (
-        <div>
-          <motion.div
-            whileTap={{ scale: 0.98 }}
-            className="back-header"
-            onClick={() => changeScreen('menu')}
-          >
-            <ArrowLeft size={18} />
-            Назад в платежи
+              <div className="form-group">
+                <label className="form-label">ОБЪЕМ (KGS)</label>
+                <div className="terminal-input-wrapper">
+                  <span className="terminal-prefix">AMT&gt;</span>
+                  <input type="number" step="0.01" placeholder="0.00" value={phoneAmount} onChange={e => setPhoneAmount(e.target.value)} className="terminal-input" required />
+                </div>
+                <span className="form-hint">Лимит: {user.cardBalance?.toLocaleString('ru-RU')}</span>
+              </div>
+              <motion.button whileTap={{ scale: 0.97 }} type="submit" disabled={loading} className="util-submit-btn">
+                {loading ? 'ИНИЦИАЛИЗАЦИЯ...' : 'ВЫПОЛНИТЬ ПЕРЕВОД'}
+              </motion.button>
+            </motion.form>
           </motion.div>
-          <h3 className="form-title">{mockTitle}</h3>
+        )}
 
-          <form onSubmit={handleMockPay} className="form-card">
-            <div className="input-group">
-              <label className="input-label">Лицевой счет / Номер договора / Код абонента</label>
-              <input
-                type="text"
-                inputMode="numeric"
-                placeholder="Например: 10449582"
-                value={mockAccount}
-                onChange={e => setMockAccount(e.target.value)}
-                className="form-input"
-                required
-              />
-            </div>
-            <div className="input-group">
-              <label className="input-label">Сумма к оплате (сомов)</label>
-              <input
-                type="text"
-                inputMode="decimal"
-                placeholder="0.00"
-                value={mockAmount}
-                onChange={e => setMockAmount(e.target.value)}
-                className="form-input"
-                required
-              />
-              <span className="balance-badge">Доступно на карте: {user.cardBalance?.toLocaleString('ru-RU')} с</span>
-            </div>
-            <motion.button
-              whileTap={{ scale: 0.98 }}
-              type="submit"
-              className="form-button"
-            >
-              Оплатить услугу
-            </motion.button>
-          </form>
-        </div>
-      )}
-
-      {/* ==================================================================== */}
-      {/* СЦЕНАРИЙ 5: QR-ПЕРЕВОДЫ */}
-      {/* ==================================================================== */}
-      {activeSubScreen === 'qr' && (
-        <div>
-          <motion.div
-            whileTap={{ scale: 0.98 }}
-            className="back-header"
-            onClick={() => changeScreen('menu')}
-          >
-            <ArrowLeft size={18} />
-            Назад в платежи
+        {/* === СЦЕНАРИЙ 3: ИНВЕСТ СЧЕТ === */}
+        {activeSubScreen === 'invest' && (
+          <motion.div key="invest" variants={containerVariants} initial="hidden" animate="show" exit="exit" className="subscreen-wrapper">
+            <BackButton />
+            <motion.h3 variants={itemVariants} className="form-heading">Фондирование M-Invest</motion.h3>
+            <motion.form variants={itemVariants} onSubmit={handleInvestFund} className="util-form">
+              <div className="form-group">
+                <label className="form-label">ИСТОЧНИК СПИСАНИЯ</label>
+                <div className="static-data-box">
+                  <CreditCard size={18} />
+                  <span>BAKA BLACK •••• {user.cardNumber?.slice(-4) || '0000'}</span>
+                </div>
+              </div>
+              <div className="form-group">
+                <label className="form-label">ОБЪЕМ ПОПОЛНЕНИЯ (KGS)</label>
+                <div className="terminal-input-wrapper">
+                  <span className="terminal-prefix">AMT&gt;</span>
+                  <input type="number" step="0.01" placeholder="0.00" value={investAmount} onChange={e => setInvestAmount(e.target.value)} className="terminal-input" required />
+                </div>
+                <span className="form-hint">Баланс: {user.cardBalance?.toLocaleString('ru-RU')}</span>
+              </div>
+              <motion.button whileTap={{ scale: 0.97 }} type="submit" disabled={loading} className="util-submit-btn">
+                {loading ? 'ОБРАБОТКА ШЛЮЗОМ...' : 'АВТОРИЗОВАТЬ ТРАНЗАКЦИЮ'}
+              </motion.button>
+            </motion.form>
           </motion.div>
-          <QRPay />
-        </div>
-      )}
+        )}
 
+        {/* === СЦЕНАРИЙ 4: MOCK (Услуги) === */}
+        {activeSubScreen === 'mock' && (
+          <motion.div key="mock" variants={containerVariants} initial="hidden" animate="show" exit="exit" className="subscreen-wrapper">
+            <BackButton />
+            <motion.h3 variants={itemVariants} className="form-heading">{mockTitle}</motion.h3>
+            <motion.form variants={itemVariants} onSubmit={handleMockPay} className="util-form">
+              <div className="form-group">
+                <label className="form-label">РЕКВИЗИТ / ЛИЦЕВОЙ СЧЕТ</label>
+                <div className="terminal-input-wrapper">
+                  <span className="terminal-prefix">ID&gt;</span>
+                  <input type="text" inputMode="numeric" placeholder="Например: 10449582" value={mockAccount} onChange={e => setMockAccount(e.target.value)} className="terminal-input" required />
+                </div>
+              </div>
+              <div className="form-group">
+                <label className="form-label">СУММА ОПЛАТЫ (KGS)</label>
+                <div className="terminal-input-wrapper">
+                  <span className="terminal-prefix">AMT&gt;</span>
+                  <input type="number" step="0.01" placeholder="0.00" value={mockAmount} onChange={e => setMockAmount(e.target.value)} className="terminal-input" required />
+                </div>
+                <span className="form-hint">Баланс: {user.cardBalance?.toLocaleString('ru-RU')}</span>
+              </div>
+              <motion.button whileTap={{ scale: 0.97 }} type="submit" className="util-submit-btn">
+                ПОДТВЕРДИТЬ ОПЛАТУ
+              </motion.button>
+            </motion.form>
+          </motion.div>
+        )}
+
+        {/* === СЦЕНАРИЙ 5: QR === */}
+        {activeSubScreen === 'qr' && (
+          <motion.div key="qr" variants={containerVariants} initial="hidden" animate="show" exit="exit" className="subscreen-wrapper">
+            <BackButton />
+            <QRPay />
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

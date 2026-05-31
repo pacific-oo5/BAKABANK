@@ -1,10 +1,23 @@
 import React, { useState } from 'react';
 import { useTradingStore } from '../store/useTradingStore';
 import { API_BASE_URL } from '../config';
-import { User, CreditCard, Phone, Eye, EyeOff, LogOut, ChevronRight, Wallet, TrendingUp, PiggyBank, Shield, Bell, HelpCircle } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { User, CreditCard, Phone, Eye, EyeOff, LogOut, ChevronRight, TrendingUp, PiggyBank, Shield, Bell, HelpCircle, X, Check } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import toast, { Toaster } from 'react-hot-toast';
 import '../styles/profile.css';
+
+// Физика Эмила Ковальски
+const springConfig = { type: "spring", stiffness: 400, damping: 30 };
+
+const containerVariants = {
+  hidden: { opacity: 0 },
+  show: { opacity: 1, transition: { staggerChildren: 0.08 } }
+};
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 16, filter: "blur(4px)" },
+  show: { opacity: 1, y: 0, filter: "blur(0px)", transition: springConfig }
+};
 
 export default function Profile() {
   const { user, setUser, logout } = useTradingStore();
@@ -18,7 +31,7 @@ export default function Profile() {
     setLoading(true);
 
     if (!newPhone.trim()) {
-      toast.error('Номер телефона не может быть пустым');
+      toast.error('Номер телефона пуст');
       setLoading(false);
       return;
     }
@@ -27,25 +40,22 @@ export default function Profile() {
       const response = await fetch(`${API_BASE_URL}/api/user/update-phone`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userId: user.id,
-          newPhoneNumber: newPhone.trim()
-        })
+        body: JSON.stringify({ userId: user.id, newPhoneNumber: newPhone.trim() })
       });
 
       const data = await response.json();
 
       if (!response.ok) {
-        toast.error(data.error || 'Ошибка при обновлении номера');
+        toast.error(data.error || 'Ошибка обновления');
         setLoading(false);
         return;
       }
 
       setUser(data.user);
-      toast.success('Номер телефона успешно изменен!');
+      toast.success('Телефон обновлен');
       setIsEditing(false);
     } catch (err) {
-      toast.error('Ошибка связи с сервером');
+      toast.error('Ошибка сервера');
     } finally {
       setLoading(false);
     }
@@ -58,221 +68,184 @@ export default function Profile() {
   };
 
   if (!user) return (
-    <div className="profile-container" style={{ textAlign: 'center', padding: 'var(--space-2xl)' }}>
-      <div className="spinner" />
-      Загрузка профиля...
+    <div className="profile-loading">
+      <div className="spinner-util" />
+      <span>Инициализация профиля...</span>
     </div>
   );
 
   return (
-    <div className="profile-container">
-      <Toaster position="top-center" toastOptions={{
-        style: { background: 'var(--color-surface)', color: 'var(--color-text-primary)', border: '1px solid var(--color-border)' },
-        success: { iconTheme: { primary: 'var(--color-accent-success)', secondary: '#fff' } },
-        error: { iconTheme: { primary: 'var(--color-accent-error)', secondary: '#fff' } }
-      }} />
+    <motion.div 
+      variants={containerVariants} 
+      initial="hidden" 
+      animate="show" 
+      className="profile-container"
+    >
+      <Toaster position="top-center" toastOptions={{ style: { background: '#1c1c1e', color: '#fff', border: '1px solid #333' } }} />
 
       {/* HEADER ПРОФИЛЯ */}
-      <motion.div
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="profile-header"
-      >
-        <div className="profile-avatar-large">
-          <User size={40} color="var(--color-accent-success)" strokeWidth={2.5} />
+      <motion.div variants={itemVariants} className="profile-header">
+        <div className="profile-avatar-brutal">
+          <span className="avatar-initial">{user.fullName.charAt(0)}</span>
         </div>
         <h2 className="profile-name">{user.fullName}</h2>
-        <div className="profile-id-badge">ID: {user.id}</div>
+        <div className="profile-id-badge">ID_{user.id}</div>
       </motion.div>
 
       {/* КАРТОЧКА С БАЛАНСАМИ */}
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ delay: 0.1 }}
-        className="profile-balance-card"
-      >
+      <motion.div variants={itemVariants} className="profile-balance-card">
+        <div className="card-noise" />
+        
         <div className="balance-card-header">
-          <span className="balance-card-label">Основная карта</span>
-          <motion.button
-            whileTap={{ scale: 0.9 }}
-            onClick={() => setCardVisible(!cardVisible)}
-            className="balance-eye-button"
-          >
-            {cardVisible ? <EyeOff size={18} /> : <Eye size={18} />}
+          <span className="balance-card-label">Основной актив</span>
+          <motion.button whileTap={{ scale: 0.9 }} onClick={() => setCardVisible(!cardVisible)} className="eye-button">
+            {cardVisible ? <EyeOff size={16} /> : <Eye size={16} />}
           </motion.button>
         </div>
 
-        <h1 className="balance-amount-large">
-          {user.cardBalance?.toLocaleString('ru-RU')} <span>с</span>
-        </h1>
+        <div className="balance-amount-wrapper">
+          <AnimatePresence mode="wait">
+            <motion.h1
+              key={cardVisible ? 'visible' : 'hidden'}
+              initial={{ opacity: 0, filter: "blur(4px)", y: 4 }}
+              animate={{ opacity: 1, filter: "blur(0px)", y: 0 }}
+              exit={{ opacity: 0, filter: "blur(4px)", y: -4 }}
+              transition={{ duration: 0.2 }}
+              className="balance-amount-large"
+            >
+              {user.cardBalance?.toLocaleString('ru-RU')} <span>KGS</span>
+            </motion.h1>
+          </AnimatePresence>
+        </div>
 
         <div className="card-number-display">
-          <CreditCard size={16} />
+          <CreditCard size={16} className="card-icon-muted" />
           <span>{cardVisible ? user.cardNumber : maskCardNumber(user.cardNumber)}</span>
         </div>
       </motion.div>
 
-      {/* ДРУГИЕ СЧЕТА */}
-      <div className="profile-accounts-grid">
-        <motion.div
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: 0.2 }}
-          className="mini-account-card"
-        >
-          <div className="mini-account-icon" style={{ background: 'rgba(48, 209, 88, 0.15)', color: 'var(--color-accent-success)' }}>
+      {/* ДРУГИЕ СЧЕТА (Утилитарная сетка) */}
+      <motion.div variants={itemVariants} className="profile-accounts-grid">
+        <motion.div whileTap={{ scale: 0.97 }} className="mini-account-card">
+          <div className="mini-account-icon">
             <TrendingUp size={20} />
           </div>
-          <span className="mini-account-label">M-Invest</span>
-          <span className="mini-account-value">{user.investBalance?.toLocaleString('ru-RU')} с</span>
+          <div className="mini-account-info">
+            <span className="mini-account-label">M-Invest</span>
+            <span className="mini-account-value">{user.investBalance?.toLocaleString('ru-RU')} <span>с</span></span>
+          </div>
         </motion.div>
 
-        <motion.div
-          initial={{ opacity: 0, x: 20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: 0.25 }}
-          className="mini-account-card"
-        >
-          <div className="mini-account-icon" style={{ background: 'rgba(255, 204, 0, 0.15)', color: 'var(--color-accent-warning)' }}>
+        <motion.div whileTap={{ scale: 0.97 }} className="mini-account-card">
+          <div className="mini-account-icon">
             <PiggyBank size={20} />
           </div>
-          <span className="mini-account-label">Копилка</span>
-          <span className="mini-account-value">{user.piggyBalance?.toLocaleString('ru-RU')} с</span>
+          <div className="mini-account-info">
+            <span className="mini-account-label">Копилка</span>
+            <span className="mini-account-value">{user.piggyBalance?.toLocaleString('ru-RU')} <span>с</span></span>
+          </div>
         </motion.div>
-      </div>
+      </motion.div>
 
-      {/* ЛИЧНЫЕ ДАННЫЕ */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.3 }}
-        className="profile-section"
-      >
-        <h3 className="profile-section-title">Личные данные</h3>
-
-        <div className="profile-data-card">
+      {/* ЛИЧНЫЕ ДАННЫЕ (Терминальный инпут) */}
+      <motion.div variants={itemVariants} className="profile-section">
+        <h3 className="profile-section-title">Системные данные</h3>
+        
+        <div className="data-card">
           <div className="data-row">
             <div className="data-row-header">
-              <Phone size={18} color="var(--color-text-tertiary)" />
-              <span className="data-label">Номер телефона</span>
+              <Phone size={16} className="icon-muted" />
+              <span className="data-label">ТЕЛЕФОН / ЛОГИН</span>
             </div>
-            {!isEditing ? (
-              <div className="data-row-content">
-                <span className="data-value">{user.phoneNumber}</span>
-                <motion.button
-                  whileTap={{ scale: 0.9 }}
-                  onClick={() => setIsEditing(true)}
-                  className="edit-button"
-                >
-                  Изменить
-                </motion.button>
-              </div>
-            ) : (
-              <form onSubmit={handleUpdatePhone} className="inline-form">
-                <input
-                  type="tel"
-                  inputMode="numeric"
-                  value={newPhone}
-                  onChange={e => setNewPhone(e.target.value)}
-                  className="inline-input"
-                  disabled={loading}
-                  required
-                />
-                <motion.button
-                  whileTap={{ scale: 0.9 }}
-                  type="submit"
-                  disabled={loading}
-                  className="save-button"
-                >
-                  {loading ? '...' : 'Ок'}
-                </motion.button>
-                <motion.button
-                  whileTap={{ scale: 0.9 }}
-                  type="button"
-                  onClick={() => { setIsEditing(false); setNewPhone(user.phoneNumber); }}
-                  className="cancel-button"
-                  disabled={loading}
-                >
-                  ✕
-                </motion.button>
-              </form>
-            )}
+            
+            <div className="data-content-wrapper">
+              <AnimatePresence mode="wait">
+                {!isEditing ? (
+                  <motion.div 
+                    key="display"
+                    initial={{ opacity: 0, filter: "blur(4px)" }}
+                    animate={{ opacity: 1, filter: "blur(0px)" }}
+                    exit={{ opacity: 0, filter: "blur(4px)", position: "absolute" }}
+                    className="data-display"
+                  >
+                    <span className="data-value">{user.phoneNumber}</span>
+                    <motion.button whileTap={{ scale: 0.95 }} onClick={() => setIsEditing(true)} className="edit-btn">
+                      Изменить
+                    </motion.button>
+                  </motion.div>
+                ) : (
+                  <motion.form 
+                    key="edit"
+                    initial={{ opacity: 0, filter: "blur(4px)" }}
+                    animate={{ opacity: 1, filter: "blur(0px)" }}
+                    exit={{ opacity: 0, filter: "blur(4px)", position: "absolute" }}
+                    onSubmit={handleUpdatePhone} 
+                    className="data-edit-form"
+                  >
+                    <div className="terminal-input-wrapper">
+                      <span className="terminal-prefix">&gt;</span>
+                      <input
+                        type="tel"
+                        inputMode="numeric"
+                        value={newPhone}
+                        onChange={e => setNewPhone(e.target.value)}
+                        className="terminal-input"
+                        disabled={loading}
+                        autoFocus
+                        required
+                      />
+                    </div>
+                    <div className="edit-actions">
+                      <motion.button whileTap={{ scale: 0.9 }} type="button" onClick={() => { setIsEditing(false); setNewPhone(user.phoneNumber); }} className="action-btn cancel" disabled={loading}>
+                        <X size={16} />
+                      </motion.button>
+                      <motion.button whileTap={{ scale: 0.9 }} type="submit" className="action-btn save" disabled={loading}>
+                        {loading ? <span className="spinner-mini" /> : <Check size={16} />}
+                      </motion.button>
+                    </div>
+                  </motion.form>
+                )}
+              </AnimatePresence>
+            </div>
           </div>
         </div>
       </motion.div>
 
-      {/* НАСТРОЙКИ И ДЕЙСТВИЯ */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.4 }}
-        className="profile-section"
-      >
+      {/* НАСТРОЙКИ И ДЕЙСТВИЯ (Монохромное меню) */}
+      <motion.div variants={itemVariants} className="profile-section">
         <h3 className="profile-section-title">Сервисы</h3>
 
-        <div className="profile-menu-list">
-          <motion.div
-            whileTap={{ scale: 0.98 }}
-            onClick={() => useTradingStore.getState().setActiveTab('invest')}
-            className="menu-item"
-          >
-            <div className="menu-item-left">
-              <div className="menu-icon-wrapper">
-                <TrendingUp size={20} color="var(--color-accent-success)" />
+        <div className="menu-list">
+          {[
+            { icon: TrendingUp, label: 'Инвестиции (M-Invest)', action: () => useTradingStore.getState().setActiveTab('invest') },
+            { icon: Shield, label: 'Безопасность', action: () => {} },
+            { icon: Bell, label: 'Уведомления', action: () => {} },
+            { icon: HelpCircle, label: 'Поддержка', action: () => {} }
+          ].map((item, idx) => (
+            <motion.div key={idx} whileTap={{ scale: 0.98 }} onClick={item.action} className="menu-item">
+              <div className="menu-item-left">
+                <div className="menu-icon"><item.icon size={18} /></div>
+                <span>{item.label}</span>
               </div>
-              <span>M-Invest (Инвестиции)</span>
-            </div>
-            <ChevronRight size={20} className="menu-arrow" />
-          </motion.div>
-
-          <motion.div whileTap={{ scale: 0.98 }} className="menu-item">
-            <div className="menu-item-left">
-              <div className="menu-icon-wrapper">
-                <Shield size={20} color="var(--color-accent-success)" />
-              </div>
-              <span>Безопасность</span>
-            </div>
-            <ChevronRight size={20} className="menu-arrow" />
-          </motion.div>
-
-          <motion.div whileTap={{ scale: 0.98 }} className="menu-item">
-            <div className="menu-item-left">
-              <div className="menu-icon-wrapper">
-                <Bell size={20} color="var(--color-accent-warning)" />
-              </div>
-              <span>Уведомления</span>
-            </div>
-            <ChevronRight size={20} className="menu-arrow" />
-          </motion.div>
-
-          <motion.div whileTap={{ scale: 0.98 }} className="menu-item">
-            <div className="menu-item-left">
-              <div className="menu-icon-wrapper">
-                <HelpCircle size={20} color="var(--color-text-tertiary)" />
-              </div>
-              <span>Помощь и поддержка</span>
-            </div>
-            <ChevronRight size={20} className="menu-arrow" />
-          </motion.div>
+              <ChevronRight size={18} className="menu-arrow" />
+            </motion.div>
+          ))}
         </div>
       </motion.div>
 
-      {/* КНОПКА ВЫХОДА */}
+      {/* КНОПКА ВЫХОДА (Brutal Error) */}
       <motion.button
-        whileTap={{ scale: 0.98 }}
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.5 }}
+        variants={itemVariants}
+        whileTap={{ scale: 0.97 }}
         onClick={() => {
-          toast.success('Вы вышли из аккаунта');
+          toast.success('Сессия завершена');
           setTimeout(() => logout(), 1000);
         }}
         className="logout-button"
       >
-        <LogOut size={20} />
-        Выйти из аккаунта
+        <LogOut size={18} />
+        ЗАВЕРШИТЬ СЕАНС
       </motion.button>
-    </div>
+    </motion.div>
   );
 }

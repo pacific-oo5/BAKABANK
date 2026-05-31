@@ -1,0 +1,310 @@
+/* ============================================
+   QR PAY — INDUSTRIAL SCANNER INTERFACE
+   ============================================ */
+
+.qr-container {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.qr-heading {
+  font-family: var(--font-display);
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--text-main);
+  margin: 0 0 4px 0;
+  letter-spacing: -0.02em;
+}
+
+.qr-subheading {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin: 0;
+}
+
+/* === MENU GRID === */
+.qr-menu-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.qr-menu-card {
+  background: var(--bg-surface);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  border-radius: 20px;
+  padding: 24px 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 12px;
+  cursor: pointer;
+  box-shadow: var(--shadow-optical);
+  transition: all 0.2s ease;
+}
+
+.qr-menu-card:hover {
+  background: var(--bg-elevated);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.qr-icon-box {
+  width: 64px;
+  height: 64px;
+  background: var(--bg-base);
+  border-radius: 16px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.qr-icon-box.accent-acid {
+  color: var(--accent-acid);
+  background: rgba(133, 255, 46, 0.05);
+  border-color: rgba(133, 255, 46, 0.1);
+}
+
+.qr-icon-box.accent-warn {
+  color: #ffcc00;
+  background: rgba(255, 204, 0, 0.05);
+  border-color: rgba(255, 204, 0, 0.1);
+}
+
+.qr-card-title {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-main);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: 0;
+}
+
+.qr-card-desc {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.4;
+  margin: 0;
+}
+
+/* === GENERATE SCREEN (White Block for QR) === */
+.qr-display-box {
+  background: var(--bg-surface);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 24px;
+  padding: 32px 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+  box-shadow: var(--shadow-optical);
+}
+
+/* Фикс бага с обрезкой QR-кода */
+.qr-white-frame {
+  background: #ffffff;
+  padding: 16px; 
+  border-radius: 20px;
+  margin-bottom: 24px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.user-id-card {
+  width: 100%;
+  background: var(--bg-base);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  border-radius: 16px;
+  padding: 16px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  box-sizing: border-box;
+}
+
+.user-id-avatar {
+  width: 48px;
+  height: 48px;
+  background: var(--bg-elevated);
+  border-radius: 12px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  color: var(--accent-acid);
+  flex-shrink: 0;
+}
+
+.user-id-name {
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.user-id-phone {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+/* === SCANNER SCREEN === */
+.scanner-container {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  width: 100%;
+}
+
+/* Контейнер-квадрат, чтобы верстка не прыгала */
+.scanner-video-wrapper {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  max-height: 400px;
+  border-radius: 24px;
+  overflow: hidden;
+  background: #000;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: var(--shadow-optical);
+}
+
+/* Переопределение стилей html5-qrcode */
+#qr-reader {
+  width: 100% !important;
+  height: 100% !important;
+  border: none !important;
+}
+
+#qr-reader video {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+  border-radius: 24px;
+}
+
+/* Убиваем весь дефолтный мусор от плагина сканера */
+#qr-reader__dashboard,
+#qr-reader__scan_region img, 
+#qr-reader__scan_region svg {
+  display: none !important; 
+}
+
+#qr-reader__scan_region {
+  background-color: transparent !important;
+  height: 100%;
+}
+
+/* Видоискатель-рамка поверх видео */
+.viewfinder-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  pointer-events: none; /* Пропускаем клики сквозь прицел */
+  z-index: 10;
+  overflow: hidden;
+}
+
+.viewfinder-box {
+  width: 220px;
+  height: 220px;
+  border: 2px solid rgba(133, 255, 46, 0.3);
+  border-radius: 24px;
+  position: relative;
+  /* Эта тень создает эффект темного стекла ВОКРУГ квадрата прицела */
+  box-shadow: 0 0 0 2000px rgba(0, 0, 0, 0.5); 
+}
+
+/* Уголки прицела */
+.viewfinder-box::before, .viewfinder-box::after {
+  content: ''; 
+  position: absolute; 
+  width: 30px; 
+  height: 30px; 
+  border-color: var(--accent-acid); 
+  border-style: solid;
+}
+.viewfinder-box::before { 
+  top: -2px; 
+  left: -2px; 
+  border-width: 4px 0 0 4px; 
+  border-top-left-radius: 24px; 
+}
+.viewfinder-box::after { 
+  bottom: -2px; 
+  right: -2px; 
+  border-width: 0 4px 4px 0; 
+  border-bottom-right-radius: 24px; 
+}
+
+.scanning-text {
+  position: absolute;
+  bottom: 24px;
+  font-family: var(--font-mono);
+  color: var(--accent-acid);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  background: rgba(0, 0, 0, 0.6);
+  padding: 6px 12px;
+  border-radius: 8px;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  animation: qr-pulse 1.5s infinite;
+}
+
+@keyframes qr-pulse {
+  0% { opacity: 1; }
+  50% { opacity: 0.5; }
+  100% { opacity: 1; }
+}
+
+/* Контейнер кнопки вне области камеры */
+.scanner-controls {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+
+/* Кнопка отмены сканирования */
+.scanner-cancel-btn {
+  width: 100%;
+  background: var(--bg-surface) !important;
+  color: var(--text-main) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  box-shadow: var(--shadow-optical);
+  z-index: 20;
+}
+
+.scanner-cancel-btn:hover {
+  background: var(--bg-elevated) !important;
+  border-color: rgba(255, 255, 255, 0.2) !important;
+}
+
+/* === CONFIRM SCREEN === */
+.confirm-box {
+  background: var(--bg-surface);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 24px;
+  padding: 32px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.confirm-icon-wrapper {
+  display: flex;
+  justify-content: center;
+  margin-bottom: -8px;
+}

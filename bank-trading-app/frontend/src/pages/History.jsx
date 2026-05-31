@@ -1,39 +1,56 @@
 import React, { useState, useEffect } from 'react';
 import { useTradingStore } from '../store/useTradingStore';
 import { API_BASE_URL } from '../config';
-import { ArrowUpRight, ArrowDownLeft, Smartphone, ShoppingBag, TrendingUp, Briefcase, Clock, AlertCircle } from 'lucide-react';
+import { ArrowUpRight, ArrowDownLeft, Smartphone, ShoppingBag, TrendingUp, Briefcase, Clock, AlertCircle, X, Download, CheckCircle2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import toast from 'react-hot-toast';
+import '../styles/history.css';
 
-// Функция для подбора иконки и цвета на основе типа транзакции
+const springConfig = { type: "spring", stiffness: 400, damping: 30 };
+const fastSpring = { type: "spring", stiffness: 500, damping: 35 };
+
+const containerVariants = {
+  hidden: { opacity: 0 },
+  show: { opacity: 1, transition: { staggerChildren: 0.05 } },
+  exit: { opacity: 0, filter: "blur(4px)", transition: { duration: 0.1 } }
+};
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 12, filter: "blur(4px)" },
+  show: { opacity: 1, y: 0, filter: "blur(0px)", transition: springConfig }
+};
+
 const getTransactionMeta = (type) => {
   switch (type) {
     case 'transfer_out':
-      return { icon: ArrowUpRight, color: '#FF453A' };
+      return { icon: ArrowUpRight, theme: 'danger' };
     case 'transfer_in':
-      return { icon: ArrowDownLeft, color: '#30D158' };
+      return { icon: ArrowDownLeft, theme: 'success' };
     case 'payment_service':
     case 'payment':
-      return { icon: Smartphone, color: '#FF9500' };
+      return { icon: Smartphone, theme: 'warning' };
     case 'payment_shop':
-      return { icon: ShoppingBag, color: '#0A84FF' };
+      return { icon: ShoppingBag, theme: 'info' };
     case 'stock_buy':
-      return { icon: TrendingUp, color: '#FF453A' }; // Покупка (минус деньги)
+      return { icon: TrendingUp, theme: 'danger' };
     case 'stock_sell':
-      return { icon: TrendingUp, color: '#30D158' }; // Продажа (плюс деньги)
+      return { icon: TrendingUp, theme: 'success' };
     case 'broker_deposit':
-      return { icon: Briefcase, color: '#0A84FF' };
+      return { icon: Briefcase, theme: 'info' };
     default:
-      return { icon: Clock, color: '#525a64' };
+      return { icon: Clock, theme: 'neutral' };
   }
 };
 
 export default function History() {
   const user = useTradingStore((state) => state.user);
-  const [activeSubTab, setActiveSubTab] = useState('banking'); // 'banking' или 'investments'
+  const [activeSubTab, setActiveSubTab] = useState('banking');
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
+  
+  // Состояние для выбранной транзакции (Чек)
+  const [selectedTx, setSelectedTx] = useState(null);
 
-  // Фетч истории операций с реального бэкенда
   useEffect(() => {
     const fetchHistory = async () => {
       if (!user?.id) return;
@@ -45,18 +62,14 @@ export default function History() {
           setTransactions(data);
         }
       } catch (err) {
-        console.error('Ошибка загрузки истории с бэкенда:', err);
+        console.error('Ошибка загрузки логов:', err);
       } finally {
         setLoading(false);
       }
     };
-
     fetchHistory();
   }, [user?.id]);
 
-  // Фильтруем транзакции по категориям из базы данных
-  // Категория 'banking': переводы, оплата услуг, покупки
-  // Категория 'invest': покупка/продажа акций (NVIDIA и др.), пополнение инвест-счета
   const filteredData = transactions.filter(t => {
     if (activeSubTab === 'banking') {
       return t.category === 'banking' || t.category === 'transfers';
@@ -65,101 +78,180 @@ export default function History() {
     }
   });
 
-  return (
-    <div style={historyContainerStyle}>
-      <h2 style={pageTitleStyle}>История операций</h2>
+  const handleDownloadReceipt = () => {
+    toast.success('Чек успешно сохранен в Галерею');
+  };
 
-      {/* ПЕРЕКЛЮЧАТЕЛЬ ВКЛАДОК */}
-      <div style={tabContainerStyle}>
-        <button 
-          onClick={() => setActiveSubTab('banking')} 
-          style={tabButtonStyle(activeSubTab === 'banking')}
-        >
-          Банковские счёта
-        </button>
-        <button 
-          onClick={() => setActiveSubTab('investments')} 
-          style={tabButtonStyle(activeSubTab === 'investments')}
-        >
-          Ценные бумаги
-        </button>
+  return (
+    <div className="history-container">
+      <div className="history-header">
+        <h2 className="history-title">Лог операций</h2>
+        <p className="history-subtitle">Системный реестр транзакций</p>
       </div>
 
-      {/* ЛЕНТА ОПЕРАЦИЙ */}
-      <div style={listContainerStyle}>
+      <div className="history-tabs-container">
+        {['banking', 'investments'].map((tab) => (
+          <button 
+            key={tab}
+            onClick={() => setActiveSubTab(tab)} 
+            className={`history-tab-btn ${activeSubTab === tab ? 'active' : ''}`}
+          >
+            {activeSubTab === tab && (
+              <motion.div layoutId="history-tab-bg" className="history-tab-active-bg" transition={fastSpring} />
+            )}
+            <span className="tab-label-text">
+              {tab === 'banking' ? 'ФИАТНЫЕ СЧЕТА' : 'АКТИВЫ (M-INVEST)'}
+            </span>
+          </button>
+        ))}
+      </div>
+
+      <div className="history-list-wrapper">
         <AnimatePresence mode="wait">
           <motion.div
             key={activeSubTab}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            transition={{ duration: 0.15 }}
+            variants={containerVariants}
+            initial="hidden"
+            animate="show"
+            exit="exit"
+            className="history-list"
           >
             {loading ? (
-              <div style={emptyStateStyle}>
-                <p style={{ color: '#525a64', fontSize: '14px' }}>Загрузка истории...</p>
-              </div>
+              <motion.div variants={itemVariants} className="history-empty-state">
+                <div className="spinner-util" />
+                <span>ИЗВЛЕЧЕНИЕ ДАННЫХ ИЗ РЕЕСТРА...</span>
+              </motion.div>
             ) : filteredData.length === 0 ? (
-              <div style={emptyStateStyle}>
-                <AlertCircle size={32} color="#525a64" />
-                <p style={{ marginTop: '8px', color: '#525a64', fontSize: '14px' }}>
+              <motion.div variants={itemVariants} className="history-empty-state">
+                <AlertCircle size={32} className="empty-icon" />
+                <span>
                   {activeSubTab === 'banking' 
-                    ? 'Нет банковских операций' 
-                    : 'Вы еще не совершали сделок с ценными бумагами'}
-                </p>
-              </div>
+                    ? 'ERR_NO_FIAT_TRANSACTIONS_FOUND' 
+                    : 'ERR_NO_INVEST_DATA_FOUND'}
+                </span>
+              </motion.div>
             ) : (
               filteredData.map((item) => {
-                const { icon: IconComponent, color } = getTransactionMeta(item.type);
+                const { icon: IconComponent, theme } = getTransactionMeta(item.type);
                 const isNegative = item.amount < 0;
                 
-                // Форматирование даты (если с бэкенда летит ISO-строка)
-                const displayDate = new Date(item.createdAt || item.date).toLocaleString('ru-RU', {
-                  day: 'numeric',
-                  month: 'short',
-                  hour: '2-digit',
-                  minute: '2-digit'
-                });
+                const dateObj = new Date(item.date);
+                const displayDate = dateObj.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: '2-digit' });
+                const displayTime = dateObj.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
 
                 return (
-                  <div key={item.id || item._id} style={transactionItemStyle}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-                      <div style={iconWrapperStyle(color)}>
-                        <IconComponent size={20} color={color} strokeWidth={2.5} />
+                  <motion.div 
+                    variants={itemVariants} 
+                    key={item.id} 
+                    className="tx-item"
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => setSelectedTx(item)} // Открываем чек
+                  >
+                    <div className="tx-left">
+                      <div className={`tx-icon-box ${theme}`}>
+                        <IconComponent size={18} strokeWidth={2.5} />
                       </div>
-                      <div style={{ textAlign: 'left' }}>
-                        <span style={itemTitleStyle}>{item.title}</span>
-                        <span style={itemSubTitleStyle}>{item.description}</span>
+                      <div className="tx-details">
+                        <span className="tx-title">{item.title}</span>
+                        <span className="tx-desc">{item.description}</span>
                       </div>
                     </div>
                     
-                    <div style={{ textAlign: 'right' }}>
-                      <span style={itemAmountStyle(isNegative)}>
-                        {isNegative ? '' : '+'}{item.amount.toLocaleString('ru-RU')} {item.currency || 'с'}
+                    <div className="tx-right">
+                      <span className={`tx-amount ${isNegative ? 'negative' : 'positive'}`}>
+                        {isNegative ? '' : '+'}{item.amount.toLocaleString('ru-RU')} <span>{item.currency || 'KGS'}</span>
                       </span>
-                      <span style={itemDateStyle}>{displayDate}</span>
+                      <div className="tx-datetime">
+                        <span>{displayDate}</span> • <span>{displayTime}</span>
+                      </div>
                     </div>
-                  </div>
+                  </motion.div>
                 );
               })
             )}
           </motion.div>
         </AnimatePresence>
       </div>
+
+      {/* === МОДАЛЬНОЕ ОКНО ЧЕКА (INVOICE MODAL) === */}
+      <AnimatePresence>
+        {selectedTx && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="receipt-overlay"
+            onClick={() => setSelectedTx(null)}
+          >
+            <motion.div 
+              initial={{ y: 50, scale: 0.95, filter: "blur(8px)" }}
+              animate={{ y: 0, scale: 1, filter: "blur(0px)" }}
+              exit={{ y: 20, scale: 0.95, opacity: 0, filter: "blur(4px)" }}
+              transition={springConfig}
+              className="receipt-card"
+              onClick={(e) => e.stopPropagation()} // Предотвращаем закрытие при клике внутри окна
+            >
+              <div className="receipt-header">
+                <div className="receipt-icon-wrapper">
+                  <CheckCircle2 size={32} className="receipt-success-icon" />
+                </div>
+                <button className="receipt-close-btn" onClick={() => setSelectedTx(null)}>
+                  <X size={20} />
+                </button>
+              </div>
+
+              <div className="receipt-body">
+                <p className="receipt-title">Транзакция выполнена</p>
+                <h1 className="receipt-amount">
+                  {selectedTx.amount < 0 ? '' : '+'}{selectedTx.amount.toLocaleString('ru-RU')} <span>{selectedTx.currency || 'KGS'}</span>
+                </h1>
+
+                <div className="receipt-divider" />
+
+                <div className="receipt-data-table">
+                  <div className="receipt-row">
+                    <span className="receipt-label">ID Операции</span>
+                    <span className="receipt-value">TXN-{String(selectedTx.id).padStart(8, '0')}</span>
+                  </div>
+                  <div className="receipt-row">
+                    <span className="receipt-label">Тип</span>
+                    <span className="receipt-value">{selectedTx.title}</span>
+                  </div>
+                  <div className="receipt-row">
+                    <span className="receipt-label">Детали</span>
+                    <span className="receipt-value truncate">{selectedTx.description}</span>
+                  </div>
+                  <div className="receipt-row">
+                    <span className="receipt-label">Дата и время</span>
+                    <span className="receipt-value">
+                      {new Date(selectedTx.date).toLocaleString('ru-RU', { 
+                        day: '2-digit', month: '2-digit', year: 'numeric', 
+                        hour: '2-digit', minute: '2-digit', second: '2-digit' 
+                      })}
+                    </span>
+                  </div>
+                  <div className="receipt-row">
+                    <span className="receipt-label">Статус</span>
+                    <span className="receipt-value success-text">PROCESSED</span>
+                  </div>
+                </div>
+
+                <div className="receipt-divider" />
+              </div>
+
+              <motion.button 
+                whileTap={{ scale: 0.97 }} 
+                className="receipt-download-btn"
+                onClick={handleDownloadReceipt}
+              >
+                <Download size={18} />
+                СКАЧАТЬ INVOICE
+              </motion.button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
     </div>
   );
 }
-
-// СТИЛИ (PREMIUM DARK)
-const historyContainerStyle = { width: '100%', maxWidth: '440px', margin: '0 auto', fontFamily: 'system-ui, sans-serif' };
-const pageTitleStyle = { fontSize: '22px', fontWeight: '800', color: '#fff', textAlign: 'left', margin: '10px 4px 20px 4px' };
-const tabContainerStyle = { display: 'flex', background: '#14161a', padding: '4px', borderRadius: '14px', border: '1px solid #202329', marginBottom: '20px' };
-const tabButtonStyle = (isActive) => ({ flex: 1, padding: '12px', background: isActive ? '#1c1f26' : 'transparent', color: isActive ? '#11bb77' : '#525a64', border: 'none', borderRadius: '10px', fontSize: '13px', fontWeight: '700', cursor: 'pointer', transition: 'all 0.2s ease' });
-const listContainerStyle = { display: 'flex', flexDirection: 'column', gap: '12px' };
-const transactionItemStyle = { display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#14161a', padding: '14px 16px', borderRadius: '18px', border: '1px solid #202329', marginBottom: '10px' };
-const iconWrapperStyle = (color) => ({ width: '42px', height: '42px', borderRadius: '12px', background: `${color}15`, display: 'flex', justifyContent: 'center', alignItems: 'center' });
-const itemTitleStyle = { fontSize: '14px', fontWeight: '700', color: '#fff', display: 'block', marginBottom: '2px' };
-const itemSubTitleStyle = { fontSize: '11px', color: '#525a64', display: 'block' };
-const itemAmountStyle = (isNegative) => ({ fontSize: '15px', fontWeight: '800', color: isNegative ? '#fff' : '#11bb77', display: 'block', marginBottom: '2px' });
-const itemDateStyle = { fontSize: '11px', color: '#525a64', display: 'block' };
-const emptyStateStyle = { padding: '40px 20px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' };

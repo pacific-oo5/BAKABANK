@@ -1,50 +1,47 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useTradingStore } from '../store/useTradingStore';
-import { Send, Bot, User, X, Sparkles, Trash2 } from 'lucide-react';
+import { Send, Terminal, User, Trash2, Cpu } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import '../styles/zhaba.css';
 
-// Скрипты ответов ЖАБЫ
+// Пружины Эмила Ковальски
+const springConfig = { type: "spring", stiffness: 400, damping: 30 };
+
+// Индустриальные скрипты ответов ЖАБЫ
 const ZHABA_RESPONSES = {
   greeting: [
-    "Ква-ква! Я ЖАБА — твой финансовый помощник в BakaBank! 🐸",
-    "Привет! Я ЖАБА, готова помочь с финансами! Ква!",
-    "Салам! ЖАБА на связи! Чем могу помочь?"
+    "> СИСТЕМА АКТИВИРОВАНА. ИИ-Жаба BakaBank на связи. Ква. 🐸",
+    "> СОЕДИНЕНИЕ УСТАНОВЛЕНО. Финансовый модуль 'ЖАБА' готов к работе. Ква.",
+    "> ИНИЦИАЛИЗАЦИЯ... Приветствую! Чем могу помочь в управлении активами?"
   ],
   balance: [
-    "Твой баланс на карте: {balance} сом. Ква-ква! 💰",
-    "На твоей карте {balance} сом. Хочешь инвестировать? 📈",
-    "Баланс карты: {balance} сом. Не забывай копить! 🐷"
+    "> ЗАПРОС БАЛАНСА: {balance} KGS. Рекомендую инвестировать свободные средства. Ква. 💰",
+    "> АНАЛИЗ СЧЕТА: На вашем балансе {balance} KGS. Транзакции доступны. 📈",
+    "> ТЕКУЩИЙ АКТИВ: {balance} KGS. Копите ресурсы! Ква. 🐷"
   ],
   invest: [
-    "M-Invest — это круто! Можешь купить акции BAKAI, NVDA, GOLD или BTC. Ква! 📊",
-    "Инвестиции — путь к богатству! Начни с малого, купи акции в разделе M-Invest! 🚀",
-    "Хочешь стать инвестором? Пополни инвест-счет и покупай акции! Ква-ква! 💎"
+    "> МОДУЛЬ M-INVEST: Доступны тикеры BAKAI, NVDA, GOLD, BTC. Начните торговлю прямо сейчас. 📊",
+    "> ДИРЕКТИВА: Инвестиции генерируют капитал. Перейдите во вкладку M-Invest для покупки активов. 🚀"
   ],
   credit: [
-    "Кредиты от 5,000 до 300,000 сом! Ставка от 14% годовых. Ква! 💸",
-    "Нужны деньги? Оформи кредит за 5 секунд без справок! 🏦",
-    "Кредитный конвейер работает 24/7! Одобрение мгновенное! Ква-ква! ⚡"
+    "> КРЕДИТНЫЙ КОНВЕЙЕР: Линии от 5,000 до 300,000 KGS. Скоринг занимает 5.2 секунды. Ква. 💸",
+    "> АНАЛИЗ ВОЗМОЖНОСТЕЙ: Вам доступен моментальный займ. Оформление без физических документов. 🏦"
   ],
   transfer: [
-    "Переводы по номеру телефона или QR-коду — без комиссии! Ква! 📲",
-    "Отправь деньги другу через QR-код! Быстро и удобно! 🎯",
-    "Переводы внутри BakaBank бесплатные! Пользуйся! 💚"
+    "> МАРШРУТИЗАЦИЯ: Доступны P2P-переводы по номеру и QR-коду (0% комиссия внутри сети). 📲",
+    "> ОПТИЧЕСКАЯ ТРАНЗАКЦИЯ: Используйте QR-сканер для мгновенной передачи средств. Ква. 🎯"
   ],
   help: [
-    "Я могу рассказать про:\n• Баланс и карты 💳\n• Инвестиции 📊\n• Кредиты 💰\n• Переводы 📲\n• QR-платежи 🔲\nПросто спроси! Ква!",
-    "Спрашивай про баланс, инвестиции, кредиты или переводы! Я знаю всё! 🐸",
-    "Нужна помощь? Спроси про любую функцию BakaBank! Ква-ква! 💡"
+    "> ДОСТУПНЫЕ КОМАНДЫ:\n• [БАЛАНС] - проверка фиата\n• [ИНВЕСТ] - биржа\n• [КРЕДИТ] - займы\n• [ПЕРЕВОД] - маршрутизация\nОжидаю ввода. Ква.",
+    "> СПРАВКА: Мой нейросетевой модуль обучен банковским операциям. Задайте вопрос. 🐸"
   ],
   unknown: [
-    "Ква? Не совсем понял... Попробуй спросить про баланс, инвестиции или кредиты! 🤔",
-    "Хм... Я пока не знаю ответа. Спроси про карты, переводы или инвестиции! 🐸",
-    "Ква-ква! Переформулируй вопрос, пожалуйста! Я помогу! 💚"
+    "> ОШИБКА СИНТАКСИСА: Запрос не распознан. Попробуйте ключевые слова: 'баланс', 'кредит', 'перевод'. 🤔",
+    "> EXCEPTION: Ква? Переформулируйте директиву, пожалуйста. 🐸"
   ],
   thanks: [
-    "Всегда пожалуйста! Ква-ква! 🐸💚",
-    "Рад помочь! Обращайся ещё! Ква! 😊",
-    "Без проблем! ЖАБА всегда на связи! 🚀"
+    "> ТРАНЗАКЦИЯ ЗАВЕРШЕНА: Всегда к вашим услугам. Ква! 💚",
+    "> СТАТУС: Рад помочь. Обращайтесь при необходимости. 🚀"
   ]
 };
 
@@ -54,7 +51,6 @@ export default function ZhabaAssistant() {
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef(null);
-  const inputRef = useRef(null);
 
   useEffect(() => {
     const saved = localStorage.getItem(`zhaba_chat_${user?.id}`);
@@ -82,13 +78,13 @@ export default function ZhabaAssistant() {
 
   const detectIntent = (text) => {
     const lower = text.toLowerCase();
-    if (lower.match(/привет|салам|здравствуй|ква/)) return 'greeting';
-    if (lower.match(/баланс|сколько денег|карт/)) return 'balance';
-    if (lower.match(/инвест|акци|купить|портфель|биржа/)) return 'invest';
-    if (lower.match(/кредит|займ|деньги в долг/)) return 'credit';
+    if (lower.match(/привет|салам|здравствуй|ква|hi/)) return 'greeting';
+    if (lower.match(/баланс|сколько|деньг|счет|карт/)) return 'balance';
+    if (lower.match(/инвест|акци|купить|биржа|портфель/)) return 'invest';
+    if (lower.match(/кредит|займ|долг/)) return 'credit';
     if (lower.match(/перевод|отправить|qr|кюар/)) return 'transfer';
-    if (lower.match(/помощь|помоги|что умеешь|функци/)) return 'help';
-    if (lower.match(/спасибо|благодар|спс|thx/)) return 'thanks';
+    if (lower.match(/помощь|помоги|умеешь|команд/)) return 'help';
+    if (lower.match(/спасибо|спс|thx|благодар/)) return 'thanks';
     return 'unknown';
   };
 
@@ -116,7 +112,7 @@ export default function ZhabaAssistant() {
     setIsTyping(true);
 
     setTimeout(() => {
-      const intent = detectIntent(input);
+      const intent = detectIntent(userMessage.text);
       const botResponse = {
         id: Date.now() + 1,
         type: 'bot',
@@ -125,14 +121,14 @@ export default function ZhabaAssistant() {
       };
       setMessages(prev => [...prev, botResponse]);
       setIsTyping(false);
-    }, 800 + Math.random() * 400);
+    }, 600 + Math.random() * 400); // Чуть быстрее для "машинного" ощущения
   };
 
   const handleClear = () => {
     const welcomeMsg = {
       id: Date.now(),
       type: 'bot',
-      text: ZHABA_RESPONSES.greeting[1],
+      text: "> ЛОГ ОЧИЩЕН. Система готова к новым запросам. Ква.",
       timestamp: new Date().toISOString()
     };
     setMessages([welcomeMsg]);
@@ -140,75 +136,61 @@ export default function ZhabaAssistant() {
   };
 
   return (
-    <div className="zhaba-container">
+    <div className="terminal-container">
       {/* HEADER */}
-      <div className="zhaba-header glass">
-        <div className="zhaba-header-left">
-          <div className="zhaba-avatar">
-            <Bot size={24} strokeWidth={2.5} />
+      <div className="terminal-header">
+        <div className="terminal-header-left">
+          <div className="terminal-avatar">
+            <Cpu size={24} strokeWidth={2} />
           </div>
-          <div className="zhaba-info">
-            <h3 className="zhaba-name">ЖАБА</h3>
-            <span className="zhaba-status">
-              <Sparkles size={12} />
-              Финансовый ассистент
+          <div className="terminal-info">
+            <h3 className="terminal-name">BAKA-AI // ЖАБА</h3>
+            <span className="terminal-status">
+              <span className="status-dot"></span> СИСТЕМА В СЕТИ
             </span>
           </div>
         </div>
-        <motion.button
-          whileTap={{ scale: 0.9 }}
-          onClick={handleClear}
-          className="zhaba-clear-btn"
-        >
-          <Trash2 size={20} />
+        <motion.button whileTap={{ scale: 0.9 }} onClick={handleClear} className="terminal-clear-btn">
+          <Trash2 size={18} />
+          <span>PURGE</span>
         </motion.button>
       </div>
 
-      {/* MESSAGES */}
-      <div className="zhaba-messages">
+      {/* MESSAGES LOG */}
+      <div className="terminal-log">
         <AnimatePresence mode="popLayout">
           {messages.map((msg) => (
             <motion.div
               key={msg.id}
-              initial={{ opacity: 0, y: 10, scale: 0.95 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-              className={`message-wrapper ${msg.type}`}
+              initial={{ opacity: 0, x: msg.type === 'user' ? 20 : -20, filter: "blur(4px)" }}
+              animate={{ opacity: 1, x: 0, filter: "blur(0px)" }}
+              exit={{ opacity: 0, scale: 0.95, filter: "blur(4px)" }}
+              transition={springConfig}
+              className={`log-entry ${msg.type}`}
             >
-              {msg.type === 'bot' && (
-                <div className="message-avatar bot-avatar">
-                  <Bot size={16} strokeWidth={2.5} />
-                </div>
-              )}
-              <div className={`message-bubble ${msg.type}`}>
-                <p className="message-text">{msg.text}</p>
-                <span className="message-time">
-                  {new Date(msg.timestamp).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}
+              <div className="log-header">
+                <span className="log-actor">
+                  {msg.type === 'bot' ? <Terminal size={12}/> : <User size={12}/>}
+                  {msg.type === 'bot' ? 'SYS_ZHABA' : `USR_${user?.id || 'GUEST'}`}
+                </span>
+                <span className="log-time">
+                  {new Date(msg.timestamp).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
                 </span>
               </div>
-              {msg.type === 'user' && (
-                <div className="message-avatar user-avatar">
-                  <User size={16} strokeWidth={2.5} />
-                </div>
-              )}
+              <div className="log-content">
+                {msg.text}
+              </div>
             </motion.div>
           ))}
         </AnimatePresence>
 
         {isTyping && (
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="message-wrapper bot"
-          >
-            <div className="message-avatar bot-avatar">
-              <Bot size={16} strokeWidth={2.5} />
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="log-entry bot">
+            <div className="log-header">
+              <span className="log-actor"><Terminal size={12}/> SYS_ZHABA</span>
             </div>
-            <div className="typing-bubble">
-              <span className="typing-dot"></span>
-              <span className="typing-dot"></span>
-              <span className="typing-dot"></span>
+            <div className="log-content typing-indicator">
+              ГЕНЕРАЦИЯ ОТВЕТА<span className="cursor-blink">_</span>
             </div>
           </motion.div>
         )}
@@ -216,25 +198,29 @@ export default function ZhabaAssistant() {
         <div ref={messagesEndRef} />
       </div>
 
-      {/* INPUT */}
-      <div className="zhaba-input-container glass">
-        <input
-          ref={inputRef}
-          type="text"
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyPress={(e) => e.key === 'Enter' && handleSend()}
-          placeholder="Спроси ЖАБУ о чём угодно..."
-          className="zhaba-input"
-        />
-        <motion.button
-          whileTap={{ scale: 0.9 }}
-          onClick={handleSend}
-          disabled={!input.trim()}
-          className={`zhaba-send-btn ${input.trim() ? 'active' : ''}`}
-        >
-          <Send size={20} strokeWidth={2.5} />
-        </motion.button>
+      {/* INPUT AREA */}
+      <div className="terminal-input-area">
+        <div className="terminal-input-wrapper">
+          <span className="terminal-prefix">CMD&gt;</span>
+          <input
+            type="text"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyPress={(e) => e.key === 'Enter' && handleSend()}
+            placeholder="ВВЕДИТЕ ЗАПРОС..."
+            className="terminal-input"
+            autoComplete="off"
+            spellCheck="false"
+          />
+          <motion.button
+            whileTap={{ scale: 0.9 }}
+            onClick={handleSend}
+            disabled={!input.trim()}
+            className="terminal-send-btn"
+          >
+            <Send size={18} strokeWidth={2.5} />
+          </motion.button>
+        </div>
       </div>
     </div>
   );

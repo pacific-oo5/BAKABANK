@@ -1,0 +1,401 @@
+/* ============================================
+   HISTORY — INDUSTRIAL LEDGER STYLES
+   ============================================ */
+
+.history-container {
+  padding: 24px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* === HEADER === */
+.history-header {
+  display: flex;
+  flex-direction: column;
+}
+
+.history-title {
+  font-family: var(--font-display);
+  font-size: 28px;
+  font-weight: 700;
+  margin: 0;
+  color: var(--text-main);
+  letter-spacing: -0.02em;
+}
+
+.history-subtitle {
+  font-family: var(--font-mono);
+  color: var(--text-muted);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: 8px 0 0 0;
+}
+
+/* === TABS (Утилитарные переключатели) === */
+.history-tabs-container {
+  display: flex;
+  background: var(--bg-base);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  padding: 4px;
+  gap: 4px;
+  position: relative;
+}
+
+.history-tab-btn {
+  flex: 1;
+  position: relative;
+  background: transparent;
+  border: none;
+  padding: 12px 0;
+  border-radius: 10px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  outline: none;
+}
+
+.tab-label-text {
+  position: relative;
+  z-index: 2;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  transition: color 0.2s ease;
+  letter-spacing: 0.05em;
+}
+
+.history-tab-btn.active .tab-label-text {
+  color: var(--text-main);
+}
+
+.history-tab-active-bg {
+  position: absolute;
+  inset: 0;
+  background: var(--bg-surface);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  border-radius: 10px;
+  box-shadow: var(--shadow-optical);
+  z-index: 1;
+}
+
+/* === TRANSACTION LIST (LEDGER) === */
+.history-list-wrapper {
+  flex: 1;
+}
+
+.history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.tx-item {
+  background: var(--bg-surface);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  border-radius: 18px;
+  padding: 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  box-shadow: var(--shadow-optical);
+  transition: border-color 0.2s ease;
+}
+
+.tx-item:hover {
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.tx-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex: 1;
+  min-width: 0; /* Для truncate text */
+}
+
+/* Иконки транзакций с жестким цветовым кодированием */
+.tx-icon-box {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-shrink: 0;
+  background: var(--bg-base);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.tx-icon-box.success { color: var(--accent-acid); background: rgba(133, 255, 46, 0.05); }
+.tx-icon-box.danger  { color: #ff453a; background: rgba(255, 69, 58, 0.05); }
+.tx-icon-box.warning { color: #ffcc00; background: rgba(255, 204, 0, 0.05); }
+.tx-icon-box.info    { color: #0a84ff; background: rgba(10, 132, 255, 0.05); }
+.tx-icon-box.neutral { color: var(--text-muted); }
+
+.tx-details {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  overflow: hidden;
+}
+
+.tx-title {
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-main);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tx-desc {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tx-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+/* Математически выверенные шрифты для цифр */
+.tx-amount {
+  font-family: var(--font-mono);
+  font-size: 15px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+.tx-amount.positive { color: var(--accent-acid); }
+.tx-amount.negative { color: var(--text-main); }
+
+.tx-amount span {
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-left: 2px;
+}
+
+.tx-datetime {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-muted);
+  display: flex;
+  gap: 4px;
+}
+
+/* === EMPTY STATE / LOADING === */
+.history-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 40vh;
+  gap: 16px;
+  text-align: center;
+}
+
+.empty-icon {
+  color: var(--text-muted);
+  opacity: 0.5;
+}
+
+.history-empty-state span {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+/* Утилитарный спиннер загрузки */
+.spinner-util {
+  width: 24px;
+  height: 24px;
+  border: 2px solid rgba(255, 255, 255, 0.1);
+  border-top-color: var(--accent-acid);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* === RECEIPT MODAL (INVOICE) === */
+.receipt-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(5, 5, 5, 0.8);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  z-index: 1000;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 16px;
+  padding-bottom: 40px; /* Отступ от нижнего края экрана */
+}
+
+.receipt-card {
+  width: 100%;
+  max-width: 400px;
+  background: var(--bg-surface);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 24px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 32px 64px -16px rgba(0, 0, 0, 0.8), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.receipt-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 16px;
+}
+
+.receipt-icon-wrapper {
+  background: rgba(133, 255, 46, 0.1);
+  padding: 12px;
+  border-radius: 16px;
+  border: 1px solid rgba(133, 255, 46, 0.2);
+}
+
+.receipt-success-icon {
+  color: var(--accent-acid);
+}
+
+.receipt-close-btn {
+  background: var(--bg-base);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: var(--text-muted);
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.receipt-close-btn:hover {
+  background: var(--bg-elevated);
+  color: var(--text-main);
+}
+
+.receipt-body {
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+}
+
+.receipt-title {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin: 0 0 8px 0;
+}
+
+.receipt-amount {
+  font-family: var(--font-mono);
+  font-size: 36px;
+  font-weight: 700;
+  color: var(--text-main);
+  margin: 0 0 24px 0;
+  letter-spacing: -0.04em;
+}
+
+.receipt-amount span {
+  font-size: 16px;
+  color: var(--accent-acid);
+}
+
+/* Пунктирный разделитель в стиле кассового чека */
+.receipt-divider {
+  border-bottom: 2px dashed rgba(255, 255, 255, 0.1);
+  margin: 16px 0;
+  width: 100%;
+}
+
+.receipt-data-table {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.receipt-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 16px;
+}
+
+.receipt-label {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.receipt-value {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--text-main);
+  font-weight: 600;
+  text-align: right;
+  word-break: break-word;
+}
+
+.receipt-value.truncate {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 180px;
+}
+
+.success-text {
+  color: var(--accent-acid);
+}
+
+.receipt-download-btn {
+  width: 100%;
+  background: var(--bg-base);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--text-main);
+  padding: 16px;
+  border-radius: 16px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  margin-top: 8px;
+  transition: all 0.2s ease;
+}
+
+.receipt-download-btn:hover {
+  background: var(--bg-elevated);
+  border-color: rgba(255, 255, 255, 0.2);
+  color: var(--accent-acid);
+}

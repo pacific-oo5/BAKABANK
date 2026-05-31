@@ -1,146 +1,80 @@
+@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=JetBrains+Mono:wght@400;500;700&display=swap');
+
 :root {
-  --text: #6b6375;
-  --text-h: #08060d;
-  --bg: #fff;
-  --border: #e5e4e7;
-  --code-bg: #f4f3ec;
-  --accent: #aa3bff;
-  --accent-bg: rgba(170, 59, 255, 0.1);
-  --accent-border: rgba(170, 59, 255, 0.5);
-  --social-bg: rgba(244, 243, 236, 0.5);
-  --shadow:
-    rgba(0, 0, 0, 0.1) 0 10px 15px -3px, rgba(0, 0, 0, 0.05) 0 4px 6px -2px;
+  /* Perceptually uniform OKLCH colors - никаких грязных теней */
+  --bg-base: oklch(0.10 0.01 260);
+  --bg-surface: oklch(0.14 0.01 260);
+  --bg-elevated: oklch(0.18 0.01 260);
+  --accent-acid: oklch(0.85 0.18 140);
+  --accent-error: oklch(0.65 0.20 20);
+  
+  --text-main: oklch(0.98 0 0);
+  --text-muted: oklch(0.65 0.02 260);
+  --text-dark: oklch(0.10 0 0);
 
-  --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --heading: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --mono: ui-monospace, Consolas, monospace;
+  --font-display: 'Bricolage Grotesque', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  --font-sans: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 
-  font: 18px/145% var(--sans);
-  letter-spacing: 0.18px;
-  color-scheme: light dark;
-  color: var(--text);
-  background: var(--bg);
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-
-  @media (max-width: 1024px) {
-    font-size: 16px;
-  }
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --text: #9ca3af;
-    --text-h: #f3f4f6;
-    --bg: #16171d;
-    --border: #2e303a;
-    --code-bg: #1f2028;
-    --accent: #c084fc;
-    --accent-bg: rgba(192, 132, 252, 0.15);
-    --accent-border: rgba(192, 132, 252, 0.5);
-    --social-bg: rgba(47, 48, 58, 0.5);
-    --shadow:
-      rgba(0, 0, 0, 0.4) 0 10px 15px -3px, rgba(0, 0, 0, 0.25) 0 4px 6px -2px;
-  }
-
-  #social .button-icon {
-    filter: invert(1) brightness(2);
-  }
+  /* Optical shadow - многослойная тень для глубины вместо border */
+  --shadow-optical: 
+    0px 0px 0px 1px rgba(255, 255, 255, 0.04),
+    0px 4px 8px -2px rgba(0, 0, 0, 0.5),
+    0px 12px 24px -4px rgba(0, 0, 0, 0.4);
+    
+  --shadow-glow: 0px 0px 24px -4px rgba(170, 255, 0, 0.15);
 }
 
 body {
   margin: 0;
-  /* Темный нейтральный фон для экрана ноутбука */
-  background-color: #050505; 
+  height: 100%;
+  width: 100%;
+  /* Десктопный фон: глубокая тьма с легким свечением в центре */
+  background-color: #0a0b0e;
+  color: var(--text-main);
+  font-family: var(--font-sans);
   display: flex;
   justify-content: center;
   align-items: center;
-  min-height: 100vh;
-  /* Запрещаем скролл самому браузеру, скроллиться будет только внутри телефона */
-  overflow: hidden; 
+  min-height: 100dvh;
+  overflow: hidden; /* Строго блокируем системный скролл */
+  -webkit-font-smoothing: antialiased;
 }
 
+/* Фрейм приложения (Телефон) */
 #root {
-  /* Жестко задаем размеры мобильного телефона */
   width: 100%;
   max-width: 430px;
   height: 100vh;
   margin: 0 auto;
-  text-align: center;
-  /* Фон самого приложения берем из вашей дизайн-системы */
-  background: var(--color-bg-primary); 
+  background-color: var(--bg-base);
+  /* Еле заметный шум (шум пленки) для физической текстуры */
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.02'/%3E%3C/svg%3E");
   display: flex;
   flex-direction: column;
-  box-sizing: border-box;
-
-  /* Важно для скролла внутри "телефона" */
   position: relative;
   overflow-x: hidden;
   overflow-y: auto;
 }
 
-h1,
-h2 {
-  font-family: var(--heading);
-  font-weight: 500;
-  color: var(--text-h);
-}
-
-h1 {
-  font-size: 56px;
-  letter-spacing: -1.68px;
-  margin: 32px 0;
-  @media (max-width: 1024px) {
-    font-size: 36px;
-    margin: 20px 0;
-  }
-}
-h2 {
-  font-size: 24px;
-  line-height: 118%;
-  letter-spacing: -0.24px;
-  margin: 0 0 8px;
-  @media (max-width: 1024px) {
-    font-size: 20px;
-  }
-}
-p {
-  margin: 0;
-}
-
-code,
-.counter {
-  font-family: var(--mono);
-  display: inline-flex;
-  border-radius: 4px;
-  color: var(--text-h);
-}
-
-code {
-  font-size: 15px;
-  line-height: 135%;
-  padding: 4px 8px;
-  background: var(--code-bg);
-}
-
-
+/* Топовый рендер "корпуса" устройства на десктопе */
 @media (min-width: 768px) {
   #root {
-    height: 90vh; /* Отступы сверху и снизу */
-    max-height: 900px;
-    border-radius: 40px; /* Скругленные края телефона */
-    border: 8px solid #1C1C1E; /* Корпус телефона (цвет из вашей палитры) */
-    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7); /* Тень от телефона */
+    height: 90vh;
+    max-height: 880px;
+    border-radius: 44px;
+    /* Имитация титановой рамки iPhone */
+    border: 12px solid #0a0a0c;
+    box-shadow: 
+      inset 0 0 0 1px rgba(255, 255, 255, 0.1),
+      0 40px 80px -20px rgba(0, 0, 0, 0.9),
+      0 0 0 2px rgba(255,255,255,0.05);
   }
   
-  /* Красивый скроллбар для десктопа внутри телефона */
-  #root::-webkit-scrollbar {
-    width: 4px;
-  }
-  #root::-webkit-scrollbar-thumb {
-    background: var(--color-surface-elevated);
-    border-radius: 10px;
-  }
+  /* Кастомный утилитарный скроллбар */
+  #root::-webkit-scrollbar { width: 4px; }
+  #root::-webkit-scrollbar-track { background: transparent; }
+  #root::-webkit-scrollbar-thumb { background: var(--bg-elevated); border-radius: 4px; }
 }
+
+h1, h2, h3, h4 { font-family: var(--font-display); font-weight: 700; margin: 0; }
